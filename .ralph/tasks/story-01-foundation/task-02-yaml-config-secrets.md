@@ -1,4 +1,4 @@
-## Task: 02 Implement Strict YAML Config With Secret References <status>not_started</status> <passes>false</passes>
+## Task: 02 Implement Strict YAML Config With Secret References <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-01-foundation/task-01-bootstrap-go-http-service.md</blocked_by>
 
@@ -30,15 +30,17 @@ Validation must be strict: unknown fields fail; missing required source fields f
 </description>
 
 <acceptance_criteria>
-- [ ] TDD red/green coverage exists for valid literal, env-ref, and secret-file username/password resolution.
-- [ ] TDD red/green coverage exists for strict unknown-field rejection and all required validation failures.
-- [ ] TDD red/green coverage exists proving env vars are not expanded or read anywhere except explicit username/password `env-ref`.
-- [ ] TDD red/green coverage exists proving TLS values are treated as file paths only.
-- [ ] The application accepts a config path through an explicit command-line flag such as `-config`.
-- [ ] Secret-file reads trim only conventional trailing line endings if needed and fail loudly on unreadable or empty files.
-- [ ] Errors are returned with useful context and are not swallowed.
-- [ ] `make check` — passes cleanly
-- [ ] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
-- [ ] `make lint` — passes cleanly
-- [ ] If this task impacts ultra-long tests (or their selection): `make test-long` — passes cleanly (ultra-long-only)
+- [x] TDD red/green coverage exists for valid literal, env-ref, and secret-file username/password resolution.
+- [x] TDD red/green coverage exists for strict unknown-field rejection and all required validation failures.
+- [x] TDD red/green coverage exists proving env vars are not expanded or read anywhere except explicit username/password `env-ref`.
+- [x] TDD red/green coverage exists proving TLS values are treated as file paths only.
+- [x] The application accepts a config path through an explicit command-line flag such as `-config`.
+- [x] Secret-file reads trim only conventional trailing line endings if needed and fail loudly on unreadable or empty files.
+- [x] Errors are returned with useful context and are not swallowed.
+- [x] `make check` — passes cleanly
+- [x] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
+- [x] `make lint` — passes cleanly
+- [x] If this task impacts ultra-long tests (or their selection): `make test-long` — passes cleanly (ultra-long-only, not required for this task)
 </acceptance_criteria>
+
+<plan>.ralph/tasks/story-01-foundation/task-02-yaml-config-secrets_plans/2026-04-30-yaml-config-plan.md</plan>

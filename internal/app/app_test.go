@@ -7,6 +7,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,8 +17,29 @@ import (
 )
 
 func TestParseConfig(t *testing.T) {
-	t.Run("accepts explicit bind address", func(t *testing.T) {
-		cfg, err := app.ParseConfig([]string{"-addr", "127.0.0.1:9090"})
+	t.Run("requires config path", func(t *testing.T) {
+		_, err := app.ParseConfig(nil)
+		if err == nil {
+			t.Fatal("ParseConfig returned nil error without config path")
+		}
+		if !strings.Contains(err.Error(), "config") {
+			t.Fatalf("ParseConfig error = %q, want mention of config", err)
+		}
+	})
+
+	t.Run("accepts explicit bind address and minimal yaml config", func(t *testing.T) {
+		configPath := writeConfigFile(t, `
+source:
+  host: localhost
+  port: 5432
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+`)
+
+		cfg, err := app.ParseConfig([]string{"-addr", "127.0.0.1:9090", "-config", configPath})
 		if err != nil {
 			t.Fatalf("ParseConfig returned error: %v", err)
 		}
@@ -26,7 +49,18 @@ func TestParseConfig(t *testing.T) {
 	})
 
 	t.Run("rejects empty bind address", func(t *testing.T) {
-		_, err := app.ParseConfig([]string{"-addr", ""})
+		configPath := writeConfigFile(t, `
+source:
+  host: localhost
+  port: 5432
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+`)
+
+		_, err := app.ParseConfig([]string{"-addr", "", "-config", configPath})
 		if err == nil {
 			t.Fatal("ParseConfig returned nil error for empty bind address")
 		}
@@ -44,6 +78,17 @@ func TestParseConfig(t *testing.T) {
 			t.Fatalf("ParseConfig error = %q, want unknown flag message", err)
 		}
 	})
+}
+
+func writeConfigFile(t *testing.T, contents string) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(strings.TrimSpace(contents)), 0o600); err != nil {
+		t.Fatalf("WriteFile config: %v", err)
+	}
+
+	return path
 }
 
 func TestRunServesHealthzAndShutsDownOnContextCancellation(t *testing.T) {

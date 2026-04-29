@@ -11,13 +11,15 @@ import (
 	"net/http"
 	"time"
 
+	"pg_gobench/internal/config"
 	"pg_gobench/internal/httpserver"
 )
 
 const defaultAddr = "127.0.0.1:8080"
 
 type Config struct {
-	Addr string
+	Addr   string
+	Source config.Source
 }
 
 func ParseConfig(args []string) (Config, error) {
@@ -25,7 +27,9 @@ func ParseConfig(args []string) (Config, error) {
 	fs.SetOutput(io.Discard)
 
 	cfg := Config{}
+	var configPath string
 	fs.StringVar(&cfg.Addr, "addr", defaultAddr, "HTTP listen address")
+	fs.StringVar(&configPath, "config", "", "path to YAML config file")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, fmt.Errorf("parse flags: %w", err)
@@ -36,6 +40,15 @@ func ParseConfig(args []string) (Config, error) {
 	if cfg.Addr == "" {
 		return Config{}, errors.New("addr must not be empty")
 	}
+	if configPath == "" {
+		return Config{}, errors.New("config must not be empty")
+	}
+
+	loaded, err := config.Load(configPath)
+	if err != nil {
+		return Config{}, fmt.Errorf("load config: %w", err)
+	}
+	cfg.Source = loaded.Source
 
 	return cfg, nil
 }

@@ -1,1 +1,2 @@
 .ralph/tasks/story-01-foundation/task-01-bootstrap-go-http-service.md
+.ralph/tasks/story-01-foundation/task-02-yaml-config-secrets.md
