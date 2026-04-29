@@ -1,18 +1,6 @@
 # Current Tasks Summary
 
-Generated: Thu Apr 30 01:47:44 AM CEST 2026
-
-# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-02-control-plane/task-01-benchmark-option-model.md`
-
-```
-## Task: 01 Define Benchmark Option Model And Profiles <status>not_started</status> <passes>false</passes>
-
-<blocked_by>.ralph/tasks/story-01-foundation/task-03-database-sql-connector.md</blocked_by>
-
-<description>
-```
-
-==============
+Generated: Thu Apr 30 01:57:59 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-02-control-plane/task-02-run-coordinator.md`
 
