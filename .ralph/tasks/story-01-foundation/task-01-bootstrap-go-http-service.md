@@ -1,4 +1,4 @@
-## Task: 01 Bootstrap Go HTTP Service <status>not_started</status> <passes>false</passes>
+## Task: 01 Bootstrap Go HTTP Service <status>done</status> <passes>true</passes>
 
 <description>
 Must use tdd skill to complete
@@ -11,13 +11,15 @@ The HTTP server must support configurable bind address through an explicit comma
 </description>
 
 <acceptance_criteria>
-- [ ] TDD red/green coverage exists for server construction, bind-address parsing, graceful shutdown wiring, and at least one basic health handler.
-- [ ] The application starts an HTTP server from a Go command entrypoint and fails loudly on invalid startup configuration.
-- [ ] The server has no auth and no HTTPS support.
-- [ ] No environment variables are used for application configuration.
-- [ ] Errors are returned or logged and surfaced; no errors are swallowed or ignored.
-- [ ] `make check` — passes cleanly
-- [ ] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
-- [ ] `make lint` — passes cleanly
-- [ ] If this task impacts ultra-long tests (or their selection): `make test-long` — passes cleanly (ultra-long-only)
+- [x] TDD red/green coverage exists for server construction, bind-address parsing, graceful shutdown wiring, and at least one basic health handler.
+- [x] The application starts an HTTP server from a Go command entrypoint and fails loudly on invalid startup configuration.
+- [x] The server has no auth and no HTTPS support.
+- [x] No environment variables are used for application configuration.
+- [x] Errors are returned or logged and surfaced; no errors are swallowed or ignored.
+- [x] `make check` — passes cleanly
+- [x] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
+- [x] `make lint` — passes cleanly
+- [x] If this task impacts ultra-long tests (or their selection): `make test-long` — passes cleanly (ultra-long-only, not required for this task)
 </acceptance_criteria>
+
+<plan>.ralph/tasks/story-01-foundation/task-01-bootstrap-go-http-service_plans/2026-04-30-bootstrap-plan.md</plan>
