@@ -30,6 +30,19 @@ type TLS struct {
 	Key    string
 }
 
+type credentialSourceKind string
+
+const (
+	credentialSourceValue      credentialSourceKind = "value"
+	credentialSourceEnvRef     credentialSourceKind = "env-ref"
+	credentialSourceSecretFile credentialSourceKind = "secret-file"
+)
+
+type credentialSource struct {
+	kind    credentialSourceKind
+	payload string
+}
+
 func Load(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -166,64 +179,75 @@ func requiredCredentialField(fields map[string]*yaml.Node, fieldPath, key string
 	if !ok {
 		return "", fmt.Errorf("%s is required", fieldPath)
 	}
-	return resolveCredential(fieldPath, node)
-}
-
-func resolveCredential(field string, node *yaml.Node) (string, error) {
-	fields, err := requiredMapping(node, field)
+	source, err := parseCredentialSource(fieldPath, node)
 	if err != nil {
 		return "", err
 	}
+	return resolveCredentialSource(fieldPath, source)
+}
+
+func parseCredentialSource(field string, node *yaml.Node) (credentialSource, error) {
+	fields, err := requiredMapping(node, field)
+	if err != nil {
+		return credentialSource{}, err
+	}
 	if err := rejectUnknownFields(fields, field, "value", "env-ref", "secret-file"); err != nil {
-		return "", err
+		return credentialSource{}, err
 	}
 
 	modeCount := 0
-	var resolved string
+	var source credentialSource
 
 	if valueNode, ok := fields["value"]; ok {
 		modeCount++
-		resolved, err = requiredScalarString(valueNode, field+".value")
-		if err != nil {
-			return "", err
+		value, valueErr := requiredScalarString(valueNode, field+".value")
+		if valueErr != nil {
+			return credentialSource{}, valueErr
 		}
+		source = credentialSource{kind: credentialSourceValue, payload: value}
 	}
 	if envNode, ok := fields["env-ref"]; ok {
 		modeCount++
 		envName, envErr := requiredScalarString(envNode, field+".env-ref")
 		if envErr != nil {
-			return "", envErr
+			return credentialSource{}, envErr
 		}
-		value, ok := os.LookupEnv(envName)
-		if !ok {
-			return "", fmt.Errorf("%s env-ref %q is not set", field, envName)
-		}
-		if value == "" {
-			return "", fmt.Errorf("%s env-ref %q resolved empty value", field, envName)
-		}
-		resolved = value
+		source = credentialSource{kind: credentialSourceEnvRef, payload: envName}
 	}
 	if secretNode, ok := fields["secret-file"]; ok {
 		modeCount++
 		secretPath, secretErr := requiredScalarString(secretNode, field+".secret-file")
 		if secretErr != nil {
-			return "", secretErr
+			return credentialSource{}, secretErr
 		}
-		value, secretErr := readSecretFile(field, secretPath)
-		if secretErr != nil {
-			return "", secretErr
-		}
-		resolved = value
+		source = credentialSource{kind: credentialSourceSecretFile, payload: secretPath}
 	}
 
 	if modeCount != 1 {
-		return "", fmt.Errorf("%s must set exactly one of value, env-ref, or secret-file", field)
-	}
-	if resolved == "" {
-		return "", fmt.Errorf("%s resolved empty value", field)
+		return credentialSource{}, fmt.Errorf("%s must set exactly one of value, env-ref, or secret-file", field)
 	}
 
-	return resolved, nil
+	return source, nil
+}
+
+func resolveCredentialSource(field string, source credentialSource) (string, error) {
+	switch source.kind {
+	case credentialSourceValue:
+		return source.payload, nil
+	case credentialSourceEnvRef:
+		value, ok := os.LookupEnv(source.payload)
+		if !ok {
+			return "", fmt.Errorf("%s env-ref %q is not set", field, source.payload)
+		}
+		if value == "" {
+			return "", fmt.Errorf("%s env-ref %q resolved empty value", field, source.payload)
+		}
+		return value, nil
+	case credentialSourceSecretFile:
+		return readSecretFile(field, source.payload)
+	default:
+		return "", fmt.Errorf("%s has unsupported credential source %q", field, source.kind)
+	}
 }
 
 func readSecretFile(field, path string) (string, error) {

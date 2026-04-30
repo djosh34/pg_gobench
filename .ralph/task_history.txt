@@ -22,3 +22,5 @@
 .ralph/tasks/bugs/bug-benchmark-schema-contract-drifted-to-bench.md
 .ralph/tasks/story-99-manual-verify-everything/task-01-manual-verify-everything.md
 .ralph/tasks/bugs/bug-lock-profile-aborts-on-first-contention-error.md
+.ralph/tasks/story-99-manual-verify-everything/task-01-manual-verify-everything.md
+.ralph/tasks/bugs/bug-multi-source-credential-validation-reports-wrong-error.md

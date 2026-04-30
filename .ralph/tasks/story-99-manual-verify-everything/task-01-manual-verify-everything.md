@@ -44,3 +44,5 @@ This is a non-code manual verification task. Do not use TDD. Do not run `make te
 - [x] If any bug task is created, stop this task and run task switching so the bug task is selected before continuing manual verification.
 - [ ] Mark this task `<passes>true</passes>` only after every checklist item is checked and every bug created during this pass is fixed.
 </acceptance_criteria>
+
+<plan>.ralph/tasks/story-99-manual-verify-everything/task-01-manual-verify-everything_plans/2026-04-30-manual-verify-everything-plan.md</plan>

@@ -250,6 +250,31 @@ source:
 	}
 }
 
+func TestLoadRejectsMultiSourceCredentialBeforeEnvResolution(t *testing.T) {
+	path := writeConfigFile(t, `
+source:
+  host: localhost
+  port: 5432
+  username:
+    value: postgres
+    env-ref: POSTGRES_USERNAME
+  password:
+    value: secret
+  dbname: postgres
+`)
+
+	_, err := config.Load(path)
+	if err == nil {
+		t.Fatal("Load returned nil error for multi-source username credential")
+	}
+	if !strings.Contains(err.Error(), "source.username must set exactly one of value, env-ref, or secret-file") {
+		t.Fatalf("Load error = %q, want exact-one credential validation error", err)
+	}
+	if strings.Contains(err.Error(), `env-ref "POSTGRES_USERNAME" is not set`) {
+		t.Fatalf("Load error = %q, must not prefer env lookup failure for invalid credential shape", err)
+	}
+}
+
 func TestLoadDoesNotExpandEnvOutsideExplicitCredentialRefs(t *testing.T) {
 	t.Setenv("DB_HOST", "db.internal")
 	t.Setenv("TLS_CERT_PATH", "/tmp/client.crt")

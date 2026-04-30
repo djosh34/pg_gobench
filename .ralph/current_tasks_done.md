@@ -1,6 +1,6 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 05:21:30 AM CEST 2026
+Generated: Thu Apr 30 05:34:59 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-benchmark-schema-contract-drifted-to-bench.md`
 
@@ -20,6 +20,17 @@ The manual verification pass for `.ralph/tasks/story-99-manual-verify-everything
 
 <description>
 During the story-99 manual verification pass against the real Docker Compose deployment, the advanced `lock` workload aborted the entire benchmark as soon as PostgreSQL returned a row-lock conflict.
+```
+
+==============
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-multi-source-credential-validation-reports-wrong-error.md`
+
+```
+## Bug: Multi-source credential validation reports the wrong error when `env-ref` is unset <status>done</status> <passes>true</passes> <priority>high</priority>
+
+<description>
+During the story-99 manual verification pass, strict config rejection mostly worked but one user-visible rejection path was wrong.
 ```
 
 ==============
