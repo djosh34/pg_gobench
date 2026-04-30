@@ -1,4 +1,4 @@
-## Task: 02 Add Docker Compose PostgreSQL Example <status>not_started</status> <passes>false</passes>
+## Task: 02 Add Docker Compose PostgreSQL Example <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-05-delivery/task-01-scratch-dockerfile.md</blocked_by>
 
@@ -11,11 +11,13 @@ This is a non-code packaging/example task. Do not use TDD for this task. Verific
 </description>
 
 <acceptance_criteria>
-- [ ] Compose example includes PostgreSQL and `pg_gobench` services.
-- [ ] Compose example mounts a YAML config file into the app container.
-- [ ] Compose example demonstrates `env-ref` and/or `secret-file` only for username/password.
-- [ ] Compose example does not imply app-wide env-var config.
-- [ ] Manual verification: `docker compose` for the example starts PostgreSQL and `pg_gobench`.
-- [ ] Manual verification: `/healthz` responds from the published HTTP port.
-- [ ] Manual verification: `/readyz` succeeds against the Compose PostgreSQL service or returns a clear JSON Go error if setup is intentionally incomplete.
+- [x] Compose example includes PostgreSQL and `pg_gobench` services.
+- [x] Compose example mounts a YAML config file into the app container.
+- [x] Compose example demonstrates `env-ref` and `secret-file` only for username/password.
+- [x] Compose example does not imply app-wide env-var config.
+- [x] Manual verification: `docker compose` for the example starts PostgreSQL and `pg_gobench`.
+- [x] Manual verification: `/healthz` responds from the published HTTP port.
+- [x] Manual verification: `/readyz` succeeds against the Compose PostgreSQL service.
 </acceptance_criteria>
+
+<plan>.ralph/tasks/story-05-delivery/task-02-docker-compose-postgres-example_plans/2026-04-30-docker-compose-postgres-example-plan.md</plan>

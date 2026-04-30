@@ -1,6 +1,6 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 03:26:33 AM CEST 2026
+Generated: Thu Apr 30 03:34:03 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/smells/2026-04-30-prometheus-metrics-boundary-smells.md`
 
@@ -139,6 +139,18 @@ Must use tdd skill to complete
 ## Task: 01 Add Scratch Dockerfile <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-04-observability/task-02-prometheus-metrics.md</blocked_by>
+
+<description>
+```
+
+==============
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-05-delivery/task-02-docker-compose-postgres-example.md`
+
+```
+## Task: 02 Add Docker Compose PostgreSQL Example <status>done</status> <passes>true</passes>
+
+<blocked_by>.ralph/tasks/story-05-delivery/task-01-scratch-dockerfile.md</blocked_by>
 
 <description>
 ```

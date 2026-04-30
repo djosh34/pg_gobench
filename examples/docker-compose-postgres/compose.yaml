@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_DB: pg_gobench
+      POSTGRES_USER: benchmark_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -d "$$POSTGRES_DB" -U "$$POSTGRES_USER"
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+    volumes:
+      - ./secrets/postgres-password.txt:/run/secrets/postgres-password:ro
+
+  pg_gobench:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    command:
+      - -config
+      - /app/config/pg_gobench.yaml
+      - -addr
+      - 0.0.0.0:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_USERNAME: benchmark_user
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/pg_gobench.yaml:/app/config/pg_gobench.yaml:ro
+      - ./secrets/postgres-password.txt:/run/secrets/postgres-password:ro

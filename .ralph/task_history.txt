@@ -10,3 +10,4 @@
 .ralph/tasks/story-04-observability/task-02-prometheus-metrics.md
 .ralph/tasks/smells/2026-04-30-prometheus-metrics-boundary-smells.md
 .ralph/tasks/story-05-delivery/task-01-scratch-dockerfile.md
+.ralph/tasks/story-05-delivery/task-02-docker-compose-postgres-example.md
