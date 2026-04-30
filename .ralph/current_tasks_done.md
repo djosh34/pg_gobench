@@ -1,6 +1,6 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 05:46:07 AM CEST 2026
+Generated: Thu Apr 30 08:32:21 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-benchmark-schema-contract-drifted-to-bench.md`
 
@@ -266,6 +266,18 @@ Must use tdd skill to complete
 ## Task: 01 Add Standalone Raw HTML Control Page <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-08-release-docs/task-02-quickstart-docs.md</blocked_by>
+
+<description>
+```
+
+==============
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-09-ui/task-02-configurable-auth-and-api-url.md`
+
+```
+## Task: 02 Add Configurable Auth Token And API URL To HTML UI <status>done</status> <passes>true</passes>
+
+<blocked_by>.ralph/tasks/story-09-ui/task-01-standalone-html-control-page.md</blocked_by>
 
 <description>
 ```

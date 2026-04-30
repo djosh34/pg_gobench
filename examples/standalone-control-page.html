@@ -227,9 +227,20 @@
             <label for="api-base-url">API base URL</label>
             <input id="api-base-url" name="api-base-url" type="url" spellcheck="false" placeholder="http://127.0.0.1:8080">
           </div>
+          <div class="field">
+            <label for="bearer-token-input">Bearer token</label>
+            <input id="bearer-token-input" name="bearer-token-input" type="password" spellcheck="false" autocomplete="off" placeholder="optional">
+          </div>
+          <div class="field">
+            <label for="token-status">Bearer token status</label>
+            <div id="token-status" class="status-bar" data-state="idle">Bearer token not set</div>
+          </div>
         </div>
+        <p id="active-api-target" class="inline-note">Active target: http://127.0.0.1:8080</p>
         <div class="button-row">
           <button id="save-base-url" type="button">Save API URL</button>
+          <button id="save-bearer-token" type="button">Set bearer token</button>
+          <button id="clear-bearer-token" class="warning" type="button">Clear bearer token</button>
           <button id="load-health" class="secondary" type="button">Check health</button>
           <button id="load-ready" class="secondary" type="button">Check readiness</button>
           <button id="load-state" class="secondary" type="button">Load state</button>
@@ -338,9 +349,12 @@
     (function () {
       const storageKey = "pg_gobench_api_base_url";
       const defaultBaseUrl = "http://127.0.0.1:8080";
-
+      const requestConfig = createRequestConfig();
       const elements = {
         apiBaseUrl: document.getElementById("api-base-url"),
+        activeApiTarget: document.getElementById("active-api-target"),
+        bearerTokenInput: document.getElementById("bearer-token-input"),
+        tokenStatus: document.getElementById("token-status"),
         requestStatus: document.getElementById("request-status"),
         jsonOutput: document.getElementById("json-output"),
         metricsOutput: document.getElementById("metrics-output"),
@@ -359,10 +373,23 @@
         alterClients: document.getElementById("alter-clients"),
         alterTargetTPS: document.getElementById("alter-target-tps")
       };
+      const requestActions = [
+        { controlId: "load-health", eventType: "click", label: "Check health", path: "/healthz", responseKind: "json" },
+        { controlId: "load-ready", eventType: "click", label: "Check readiness", path: "/readyz", responseKind: "json" },
+        { controlId: "load-state", eventType: "click", label: "Load state", path: "/benchmark", responseKind: "json" },
+        { controlId: "load-results", eventType: "click", label: "Load results", path: "/benchmark/results", responseKind: "json" },
+        { controlId: "fetch-metrics", eventType: "click", label: "Fetch metrics", path: "/metrics", responseKind: "metrics" },
+        { controlId: "open-metrics", eventType: "click", label: "Open metrics", path: "/metrics", responseKind: "metrics-open" },
+        { controlId: "start-form", eventType: "submit", label: "Start benchmark", path: "/benchmark/start", responseKind: "json", method: "POST", buildBody: buildStartPayload },
+        { controlId: "alter-form", eventType: "submit", label: "Alter benchmark", path: "/benchmark/alter", responseKind: "json", method: "POST", buildBody: buildAlterPayload },
+        { controlId: "stop-benchmark", eventType: "click", label: "Stop benchmark", path: "/benchmark/stop", responseKind: "json", method: "POST" }
+      ];
 
-      function initializeBaseUrl() {
-        const saved = window.localStorage.getItem(storageKey);
-        elements.apiBaseUrl.value = saved || defaultBaseUrl;
+      function createRequestConfig() {
+        return {
+          apiBaseUrl: defaultBaseUrl,
+          bearerToken: ""
+        };
       }
 
       function normalizeBaseUrl(rawValue) {
@@ -370,15 +397,105 @@
         if (trimmed === "") {
           throw new Error("API base URL is required");
         }
-        return trimmed.replace(/\/+$/, "");
+        if (trimmed.startsWith("file://")) {
+          throw new Error("API base URL must use http:// or https://");
+        }
+        if (trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../")) {
+          throw new Error("API base URL must be an absolute http:// or https:// URL");
+        }
+
+        let normalized = trimmed;
+        if (!/^https?:\/\//i.test(normalized)) {
+          if (!/^(?:[a-z0-9.-]+|\[[a-f0-9:]+\])(?::\d+)?(?:\/[^\s?#]*)?$/i.test(normalized)) {
+            throw new Error("API base URL must be a valid host[:port][/path] target");
+          }
+          normalized = "http://" + normalized;
+        }
+        if (normalized.includes("?") || normalized.includes("#")) {
+          throw new Error("API base URL must not include a query string or fragment");
+        }
+
+        normalized = normalized.replace(/\/+$/, "");
+        if (!/^https?:\/\/[^/\s?#]+(?:\/[^\s?#]*)?$/i.test(normalized)) {
+          throw new Error("API base URL must be a valid absolute http:// or https:// URL");
+        }
+
+        return normalized;
       }
 
-      function saveBaseUrl() {
-        const baseUrl = normalizeBaseUrl(elements.apiBaseUrl.value);
-        window.localStorage.setItem(storageKey, baseUrl);
+      function readStoredApiBaseUrl() {
+        const saved = window.localStorage.getItem(storageKey);
+        if (saved === null || saved.trim() === "") {
+          return defaultBaseUrl;
+        }
+        try {
+          return normalizeBaseUrl(saved);
+        } catch (error) {
+          window.localStorage.setItem(storageKey, defaultBaseUrl);
+          return defaultBaseUrl;
+        }
+      }
+
+      function renderActiveApiTarget() {
+        elements.activeApiTarget.textContent = "Active target: " + requestConfig.apiBaseUrl;
+      }
+
+      function renderTokenStatus() {
+        if (requestConfig.bearerToken === "") {
+          elements.tokenStatus.textContent = "Bearer token not set";
+          elements.tokenStatus.dataset.state = "idle";
+          return;
+        }
+        elements.tokenStatus.textContent = "Bearer token set";
+        elements.tokenStatus.dataset.state = "success";
+      }
+
+      function renderJSON(value) {
+        elements.jsonOutput.textContent = JSON.stringify(value, null, 2);
+      }
+
+      function renderMetrics(text) {
+        elements.metricsOutput.textContent = text;
+      }
+
+      function setStatus(message, state) {
+        elements.requestStatus.textContent = message;
+        elements.requestStatus.dataset.state = state || "idle";
+      }
+
+      function describeResponse(label, result) {
+        return label + ": " + result.method + " " + result.url + " -> " + result.response.status + " " + result.response.statusText;
+      }
+
+      function applyApiBaseUrl(rawValue) {
+        const baseUrl = normalizeBaseUrl(rawValue);
+        requestConfig.apiBaseUrl = baseUrl;
         elements.apiBaseUrl.value = baseUrl;
+        renderActiveApiTarget();
+        return baseUrl;
+      }
+
+      function saveApiBaseUrl() {
+        const baseUrl = applyApiBaseUrl(elements.apiBaseUrl.value);
+        window.localStorage.setItem(storageKey, baseUrl);
         setStatus("Saved API base URL: " + baseUrl, "success");
         return baseUrl;
+      }
+
+      function saveBearerToken() {
+        const token = elements.bearerTokenInput.value.trim();
+        if (token === "") {
+          throw new Error("Bearer token is required");
+        }
+        requestConfig.bearerToken = token;
+        elements.bearerTokenInput.value = "";
+        renderTokenStatus();
+      }
+
+      function clearBearerToken() {
+        requestConfig.bearerToken = "";
+        elements.bearerTokenInput.value = "";
+        renderTokenStatus();
       }
 
       function parseRequiredInteger(rawValue, fieldName) {
@@ -453,16 +570,41 @@
         return payload;
       }
 
-      async function callEndpoint(path, options) {
-        const baseUrl = saveBaseUrl();
-        const method = (options && options.method) || "GET";
-        const url = baseUrl + path;
-        const requestInit = { method: method, headers: {} };
+      function buildRequestURL(path) {
+        return requestConfig.apiBaseUrl + path;
+      }
 
+      function buildRequestInit(options) {
+        const requestInit = {
+          method: (options && options.method) || "GET",
+          headers: {}
+        };
+
+        if (requestConfig.bearerToken !== "") {
+          requestInit.headers.Authorization = "Bearer " + requestConfig.bearerToken;
+        }
         if (options && Object.prototype.hasOwnProperty.call(options, "body")) {
           requestInit.headers["Content-Type"] = "application/json";
           requestInit.body = JSON.stringify(options.body);
         }
+
+        return requestInit;
+      }
+
+      function buildActionRequestOptions(action) {
+        const options = {};
+        if (action.method) {
+          options.method = action.method;
+        }
+        if (action.buildBody) {
+          options.body = action.buildBody();
+        }
+        return Object.keys(options).length === 0 ? null : options;
+      }
+
+      async function callEndpoint(path, options) {
+        const url = buildRequestURL(path);
+        const requestInit = buildRequestInit(options);
 
         let response;
         try {
@@ -490,7 +632,7 @@
         return {
           bodyText: bodyText,
           contentType: contentType,
-          method: method,
+          method: requestInit.method,
           path: path,
           payload: payload,
           response: response,
@@ -498,80 +640,78 @@
         };
       }
 
-      function renderJSON(value) {
-        elements.jsonOutput.textContent = JSON.stringify(value, null, 2);
-      }
+      function renderJSONResult(label, result) {
+        const payload = typeof result.payload === "string" ? { body: result.payload } : (result.payload || {});
+        renderJSON(payload);
 
-      function renderMetrics(text) {
-        elements.metricsOutput.textContent = text;
-      }
-
-      function setStatus(message, state) {
-        elements.requestStatus.textContent = message;
-        elements.requestStatus.dataset.state = state || "idle";
-      }
-
-      function describeResponse(label, result) {
-        return label + ": " + result.method + " " + result.url + " -> " + result.response.status + " " + result.response.statusText;
-      }
-
-      async function runJSONAction(label, path, options) {
-        setStatus(label + ": sending request...", "idle");
-
-        try {
-          const result = await callEndpoint(path, options);
-          const payload = typeof result.payload === "string" ? { body: result.payload } : (result.payload || {});
-          renderJSON(payload);
-
-          if (!result.response.ok) {
-            const message = payload.error || result.bodyText || ("HTTP " + result.response.status);
-            setStatus(describeResponse(label, result) + " | " + message, "error");
-            return;
-          }
-
-          setStatus(describeResponse(label, result), "success");
-        } catch (error) {
-          renderJSON({ error: error.message });
-          setStatus(label + ": " + error.message, "error");
+        if (!result.response.ok) {
+          const message = payload.error || result.bodyText || ("HTTP " + result.response.status);
+          setStatus(describeResponse(label, result) + " | " + message, "error");
+          return;
         }
+
+        setStatus(describeResponse(label, result), "success");
       }
 
-      async function runMetricsFetch() {
-        setStatus("Fetch metrics: sending request...", "idle");
+      function renderMetricsFailure(label, result) {
+        if (typeof result.payload === "object" && result.payload !== null) {
+          renderJSON(result.payload);
+        } else {
+          renderJSON({ error: result.bodyText || ("HTTP " + result.response.status) });
+        }
+        renderMetrics("# metrics request failed");
+        setStatus(describeResponse(label, result), "error");
+      }
 
-        try {
-          const result = await callEndpoint("/metrics");
-          if (!result.response.ok) {
-            if (typeof result.payload === "object" && result.payload !== null) {
-              renderJSON(result.payload);
-            } else {
-              renderJSON({ error: result.bodyText || ("HTTP " + result.response.status) });
-            }
-            renderMetrics("# metrics request failed");
-            setStatus(describeResponse("Fetch metrics", result), "error");
-            return;
-          }
+      function renderMetricsResult(label, result) {
+        if (!result.response.ok) {
+          renderMetricsFailure(label, result);
+          return;
+        }
+        renderMetrics(result.bodyText);
+        setStatus(describeResponse(label, result), "success");
+      }
 
-          renderMetrics(result.bodyText);
-          setStatus(describeResponse("Fetch metrics", result), "success");
-        } catch (error) {
+      function openMetricsWindow(result) {
+        const metricsWindow = window.open("data:text/plain;charset=utf-8," + encodeURIComponent(result.bodyText), "_blank", "noopener");
+        if (metricsWindow === null) {
+          throw new Error("browser blocked the new tab");
+        }
+        setStatus("Open metrics: launched new tab from " + result.url, "success");
+      }
+
+      function renderActionResult(action, result) {
+        if (action.responseKind === "json") {
+          renderJSONResult(action.label, result);
+          return;
+        }
+        if (action.responseKind === "metrics") {
+          renderMetricsResult(action.label, result);
+          return;
+        }
+        if (!result.response.ok) {
+          renderMetricsFailure(action.label, result);
+          return;
+        }
+        openMetricsWindow(result);
+      }
+
+      function renderActionError(action, error) {
+        if (action.responseKind === "json") {
           renderJSON({ error: error.message });
+        } else {
           renderMetrics("# metrics request failed");
-          setStatus("Fetch metrics: " + error.message, "error");
         }
+        setStatus(action.label + ": " + error.message, "error");
       }
 
-      function openMetricsInNewTab() {
+      async function runRequestAction(action) {
+        setStatus(action.label + ": sending request...", "idle");
         try {
-          const baseUrl = saveBaseUrl();
-          const metricsUrl = baseUrl + "/metrics";
-          const newWindow = window.open(metricsUrl, "_blank", "noopener");
-          if (newWindow === null) {
-            throw new Error("browser blocked the new tab");
-          }
-          setStatus("Open metrics: launched " + metricsUrl, "success");
+          const result = await callEndpoint(action.path, buildActionRequestOptions(action));
+          renderActionResult(action, result);
         } catch (error) {
-          setStatus("Open metrics: " + error.message, "error");
+          renderActionError(action, error);
         }
       }
 
@@ -594,74 +734,53 @@
         elements.profileHint.textContent = "This profile ignores read_percent and transaction_mix. The page will omit both fields.";
       }
 
-      document.getElementById("save-base-url").addEventListener("click", function () {
-        try {
-          saveBaseUrl();
-        } catch (error) {
-          setStatus("Save API URL: " + error.message, "error");
-        }
-      });
-
-      document.getElementById("load-health").addEventListener("click", function () {
-        void runJSONAction("Check health", "/healthz");
-      });
-
-      document.getElementById("load-ready").addEventListener("click", function () {
-        void runJSONAction("Check readiness", "/readyz");
-      });
-
-      document.getElementById("load-state").addEventListener("click", function () {
-        void runJSONAction("Load state", "/benchmark");
-      });
-
-      document.getElementById("load-results").addEventListener("click", function () {
-        void runJSONAction("Load results", "/benchmark/results");
-      });
-
-      document.getElementById("fetch-metrics").addEventListener("click", function () {
-        void runMetricsFetch();
-      });
-
-      document.getElementById("open-metrics").addEventListener("click", function () {
-        openMetricsInNewTab();
-      });
-
-      elements.startForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-        try {
-          const payload = buildStartPayload();
-          void runJSONAction("Start benchmark", "/benchmark/start", {
-            method: "POST",
-            body: payload
+      function wireRequestActions() {
+        requestActions.forEach(function (action) {
+          const control = document.getElementById(action.controlId);
+          control.addEventListener(action.eventType, function (event) {
+            if (action.eventType === "submit") {
+              event.preventDefault();
+            }
+            void runRequestAction(action);
           });
-        } catch (error) {
-          renderJSON({ error: error.message });
-          setStatus("Start benchmark: " + error.message, "error");
-        }
-      });
+        });
+      }
 
-      elements.alterForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-        try {
-          const payload = buildAlterPayload();
-          void runJSONAction("Alter benchmark", "/benchmark/alter", {
-            method: "POST",
-            body: payload
-          });
-        } catch (error) {
-          renderJSON({ error: error.message });
-          setStatus("Alter benchmark: " + error.message, "error");
-        }
-      });
+      function wireControlActions() {
+        document.getElementById("save-base-url").addEventListener("click", function () {
+          try {
+            saveApiBaseUrl();
+          } catch (error) {
+            setStatus("Save API URL: " + error.message, "error");
+          }
+        });
 
-      document.getElementById("stop-benchmark").addEventListener("click", function () {
-        void runJSONAction("Stop benchmark", "/benchmark/stop", { method: "POST" });
-      });
+        document.getElementById("save-bearer-token").addEventListener("click", function () {
+          try {
+            saveBearerToken();
+          } catch (error) {
+            setStatus("Set bearer token: " + error.message, "error");
+          }
+        });
 
-      elements.startProfile.addEventListener("change", updateProfileFields);
+        document.getElementById("clear-bearer-token").addEventListener("click", function () {
+          clearBearerToken();
+        });
 
-      initializeBaseUrl();
-      updateProfileFields();
+        elements.startProfile.addEventListener("change", updateProfileFields);
+      }
+
+      function initializePageState() {
+        requestConfig.apiBaseUrl = readStoredApiBaseUrl();
+        elements.apiBaseUrl.value = requestConfig.apiBaseUrl;
+        renderActiveApiTarget();
+        renderTokenStatus();
+        updateProfileFields();
+      }
+
+      wireRequestActions();
+      wireControlActions();
+      initializePageState();
     })();
   </script>
 </body>

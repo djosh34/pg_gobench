@@ -25,3 +25,5 @@
 .ralph/tasks/story-99-manual-verify-everything/task-01-manual-verify-everything.md
 .ralph/tasks/bugs/bug-multi-source-credential-validation-reports-wrong-error.md
 .ralph/tasks/story-99-manual-verify-everything/task-01-manual-verify-everything.md
+NONE
+.ralph/tasks/story-09-ui/task-02-configurable-auth-and-api-url.md

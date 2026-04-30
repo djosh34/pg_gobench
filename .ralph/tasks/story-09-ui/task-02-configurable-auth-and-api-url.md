@@ -1,4 +1,4 @@
-## Task: 02 Add Configurable Auth Token And API URL To HTML UI <status>not_started</status> <passes>false</passes>
+## Task: 02 Add Configurable Auth Token And API URL To HTML UI <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-09-ui/task-01-standalone-html-control-page.md</blocked_by>
 
@@ -15,16 +15,16 @@ This task is scoped to the standalone HTML control page behavior and the HTTP re
 </description>
 
 <acceptance_criteria>
-- [ ] Red/green test or browser automation coverage proves that entering a bearer token marks the token as set while the raw token value is not visible in the rendered HTML.
-- [ ] Red/green test or browser automation coverage proves that API requests include `Authorization: Bearer <token>` after the token is configured.
-- [ ] Red/green test or browser automation coverage proves that clearing or replacing the bearer token changes subsequent request headers correctly.
-- [ ] Red/green test or browser automation coverage proves that changing the API URL/prefix changes the target for all API actions, including health, readiness, benchmark state/results, start, alter, stop, and metrics.
-- [ ] The standalone page still opens directly from disk in a browser and requires no Node, bundler, frontend framework, Go template, or server-side rendering.
-- [ ] Manual browser verification: open the standalone HTML file, set a bearer token, confirm the UI shows that a token is set without exposing it, change the API URL/prefix, and successfully send requests to the configured target or observe clear request errors from that target.
-- [ ] `make check` — passes cleanly
-- [ ] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
-- [ ] `make lint` — passes cleanly
-- [ ] If this task impacts ultra-long tests (or their selection): `make test-long` — passes cleanly (ultra-long-only)
+- [x] Red/green test or browser automation coverage proves that entering a bearer token marks the token as set while the raw token value is not visible in the rendered HTML.
+- [x] Red/green test or browser automation coverage proves that API requests include `Authorization: Bearer <token>` after the token is configured.
+- [x] Red/green test or browser automation coverage proves that clearing or replacing the bearer token changes subsequent request headers correctly.
+- [x] Red/green test or browser automation coverage proves that changing the API URL/prefix changes the target for all API actions, including health, readiness, benchmark state/results, start, alter, stop, and metrics.
+- [x] The standalone page still opens directly from disk in a browser and requires no Node, bundler, frontend framework, Go template, or server-side rendering.
+- [x] Manual browser verification: open the standalone HTML file, set a bearer token, confirm the UI shows that a token is set without exposing it, change the API URL/prefix, and successfully send requests to the configured target or observe clear request errors from that target.
+- [x] `make check` — passes cleanly
+- [x] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
+- [x] `make lint` — passes cleanly
+- [x] If this task impacts ultra-long tests (or their selection): `make test-long` — passes cleanly (ultra-long-only, not required for this task)
 </acceptance_criteria>
 
 <plan>.ralph/tasks/story-09-ui/task-02-configurable-auth-and-api-url_plans/2026-04-30-configurable-auth-and-api-url-plan.md</plan>
