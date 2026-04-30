@@ -1,6 +1,7 @@
 package benchmarkrun
 
 import (
+	"context"
 	"time"
 
 	"pg_gobench/internal/benchmark"
@@ -51,6 +52,8 @@ type OperationRates struct {
 }
 
 func stateToResults(state State, sample Sample) Results {
+	sample = normalizeResultsSample(state, sample)
+
 	return Results{
 		Status:    state.Status,
 		Options:   cloneStartOptions(state.Options),
@@ -59,6 +62,14 @@ func stateToResults(state State, sample Sample) Results {
 		Error:     state.Error,
 		Stats:     sample.Stats(),
 	}
+}
+
+func normalizeResultsSample(state State, sample Sample) Sample {
+	if state.Status == StatusStopped && state.Error == "" && compactErrorText(sample.LatestError) == context.Canceled.Error() {
+		sample.LatestError = ""
+	}
+
+	return sample
 }
 
 func cloneTimePtr(value *time.Time) *time.Time {

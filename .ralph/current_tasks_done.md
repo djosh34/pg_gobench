@@ -1,6 +1,6 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 04:38:00 AM CEST 2026
+Generated: Thu Apr 30 04:49:49 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-postgres-reserved-schema-name-breaks-benchmark-start.md`
 
@@ -9,6 +9,17 @@ Generated: Thu Apr 30 04:38:00 AM CEST 2026
 
 <description>
 Manual verification for `.ralph/tasks/story-07-k8s/task-01-k8s-simple-deployment-configmap.md` hit a real runtime failure after the Kubernetes deployment became healthy.
+```
+
+==============
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-stopped-run-results-show-context-canceled.md`
+
+```
+## Bug: Stopped Run Results Surface Context Canceled As Latest Error <status>done</status> <passes>true</passes> <priority>high</priority>
+
+<description>
+During the story-99 manual verification pass against the real Docker Compose stack, a user-triggered stop left the benchmark in `status: "stopped"` but `/benchmark/results` still reported `stats.latest_error: "context canceled"`.
 ```
 
 ==============

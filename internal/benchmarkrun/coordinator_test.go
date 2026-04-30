@@ -205,6 +205,52 @@ func TestCoordinatorStopIsIdempotentWhileStoppingAndAfterStopped(t *testing.T) {
 	}
 }
 
+func TestCoordinatorResultsHideControlPlaneCancellationAfterNormalStop(t *testing.T) {
+	run := &fakeRun{
+		sample: benchmarkrun.Sample{
+			ElapsedSeconds:       2,
+			TotalOperations:      5,
+			SuccessfulOperations: 5,
+			ConfiguredClients:    2,
+			LatestError:          context.Canceled.Error(),
+		},
+	}
+	runner := &fakeRunner{run: run}
+	coordinator := benchmarkrun.New(runner)
+
+	run.waitFunc = func() error {
+		<-runner.startedCtx.Done()
+		return context.Canceled
+	}
+
+	if _, err := coordinator.Start(context.Background(), benchmark.StartOptions{
+		Scale:           10,
+		Clients:         2,
+		DurationSeconds: 60,
+		WarmupSeconds:   10,
+		Profile:         benchmark.ProfileRead,
+	}); err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	if _, err := coordinator.Stop(); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+
+	waitForState(t, coordinator, benchmarkrun.StatusStopped)
+
+	results := coordinator.Results()
+	if results.Status != benchmarkrun.StatusStopped {
+		t.Fatalf("results Status = %q, want %q", results.Status, benchmarkrun.StatusStopped)
+	}
+	if results.Error != "" {
+		t.Fatalf("results Error = %q, want empty", results.Error)
+	}
+	if results.Stats.LatestError != "" {
+		t.Fatalf("results LatestError = %q, want empty after normal stop", results.Stats.LatestError)
+	}
+}
+
 func TestCoordinatorAlterWhileRunningUpdatesStateAndForwardsToRun(t *testing.T) {
 	run := &fakeRun{waitResult: make(chan error, 1)}
 	runner := &fakeRunner{run: run}
