@@ -1,4 +1,4 @@
-## Task: 01 Create Benchmark Schema And Scale Data Setup <status>not_started</status> <passes>false</passes>
+## Task: 01 Create Benchmark Schema And Scale Data Setup <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-02-control-plane/task-03-http-json-api.md</blocked_by>
 
@@ -13,14 +13,16 @@ This project is greenfield with no backwards compatibility requirement. Do not a
 </description>
 
 <acceptance_criteria>
-- [ ] TDD red/green coverage exists for scale-to-row-count mapping.
-- [ ] TDD red/green coverage exists for generated schema SQL targeting only `pg_gobench`.
-- [ ] TDD red/green coverage or integration coverage exists for creating benchmark tables and indexes through `database/sql`.
-- [ ] Reset/destructive behavior is explicit and limited to the benchmark-owned `pg_gobench` schema.
-- [ ] Setup failures are returned and cause benchmark start to fail visibly.
-- [ ] No SQL is executed through pgx direct APIs; use `database/sql`.
-- [ ] `make check` — passes cleanly
-- [ ] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
-- [ ] `make lint` — passes cleanly
+- [x] TDD red/green coverage exists for scale-to-row-count mapping.
+- [x] TDD red/green coverage exists for generated schema SQL targeting only `pg_gobench`.
+- [x] TDD red/green coverage or integration coverage exists for creating benchmark tables and indexes through `database/sql`.
+- [x] Reset/destructive behavior is explicit and limited to the benchmark-owned `pg_gobench` schema.
+- [x] Setup failures are returned and cause benchmark start to fail visibly.
+- [x] No SQL is executed through pgx direct APIs; use `database/sql`.
+- [x] `make check` — passes cleanly
+- [x] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
+- [x] `make lint` — passes cleanly
 - [ ] If this task impacts ultra-long tests (or their selection): `make test-long` — passes cleanly (ultra-long-only)
 </acceptance_criteria>
+
+<plan>.ralph/tasks/story-03-core-benchmark/task-01-benchmark-schema-scale_plans/2026-04-30-benchmark-schema-scale-plan.md</plan>

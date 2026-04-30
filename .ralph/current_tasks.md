@@ -1,18 +1,6 @@
 # Current Tasks Summary
 
-Generated: Thu Apr 30 02:19:23 AM CEST 2026
-
-# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-03-core-benchmark/task-01-benchmark-schema-scale.md`
-
-```
-## Task: 01 Create Benchmark Schema And Scale Data Setup <status>not_started</status> <passes>false</passes>
-
-<blocked_by>.ralph/tasks/story-02-control-plane/task-03-http-json-api.md</blocked_by>
-
-<description>
-```
-
-==============
+Generated: Thu Apr 30 02:31:15 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-03-core-benchmark/task-02-core-read-write-transaction-workloads.md`
 

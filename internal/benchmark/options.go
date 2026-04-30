@@ -43,6 +43,7 @@ type StartOptions struct {
 	Clients         int            `json:"clients"`
 	DurationSeconds int            `json:"duration_seconds"`
 	WarmupSeconds   int            `json:"warmup_seconds"`
+	Reset           bool           `json:"reset"`
 	Profile         Profile        `json:"profile"`
 	ReadPercent     *int           `json:"read_percent,omitempty"`
 	TransactionMix  TransactionMix `json:"transaction_mix"`
@@ -59,6 +60,7 @@ type startPayload struct {
 	Clients         *int            `json:"clients"`
 	DurationSeconds *int            `json:"duration_seconds"`
 	WarmupSeconds   *int            `json:"warmup_seconds"`
+	Reset           *bool           `json:"reset"`
 	Profile         *Profile        `json:"profile"`
 	ReadPercent     *int            `json:"read_percent"`
 	TransactionMix  *TransactionMix `json:"transaction_mix"`
@@ -90,6 +92,9 @@ func DecodeStartOptions(r io.Reader) (StartOptions, error) {
 	}
 	if payload.WarmupSeconds != nil {
 		options.WarmupSeconds = *payload.WarmupSeconds
+	}
+	if payload.Reset != nil {
+		options.Reset = *payload.Reset
 	}
 	if payload.Profile != nil {
 		options.Profile = *payload.Profile

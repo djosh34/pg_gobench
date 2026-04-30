@@ -14,6 +14,7 @@ func TestStartOptionsMarshalJSONUsesHTTPFieldNames(t *testing.T) {
 		Clients:         4,
 		DurationSeconds: 90,
 		WarmupSeconds:   15,
+		Reset:           true,
 		Profile:         benchmark.ProfileMixed,
 		ReadPercent:     intPtr(70),
 		TargetTPS:       intPtr(220),
@@ -22,7 +23,7 @@ func TestStartOptionsMarshalJSONUsesHTTPFieldNames(t *testing.T) {
 		t.Fatalf("Marshal StartOptions: %v", err)
 	}
 
-	if got := string(payload); got != `{"scale":12,"clients":4,"duration_seconds":90,"warmup_seconds":15,"profile":"mixed","read_percent":70,"transaction_mix":"","target_tps":220}` {
+	if got := string(payload); got != `{"scale":12,"clients":4,"duration_seconds":90,"warmup_seconds":15,"reset":true,"profile":"mixed","read_percent":70,"transaction_mix":"","target_tps":220}` {
 		t.Fatalf("Marshal StartOptions = %s", got)
 	}
 }
@@ -44,6 +45,9 @@ func TestDecodeStartOptionsAppliesDefaultsForMinimalPayload(t *testing.T) {
 	}
 	if options.WarmupSeconds != 10 {
 		t.Fatalf("WarmupSeconds = %d, want %d", options.WarmupSeconds, 10)
+	}
+	if options.Reset {
+		t.Fatal("Reset = true, want false")
 	}
 	if options.Profile != benchmark.ProfileMixed {
 		t.Fatalf("Profile = %q, want %q", options.Profile, benchmark.ProfileMixed)
@@ -80,8 +84,22 @@ func TestDecodeStartOptionsDefaultsTransactionMixForTransactionProfile(t *testin
 	if options.TransactionMix != benchmark.TransactionMixBalanced {
 		t.Fatalf("TransactionMix = %q, want %q", options.TransactionMix, benchmark.TransactionMixBalanced)
 	}
+	if options.Reset {
+		t.Fatal("Reset = true, want false")
+	}
 	if options.ReadPercent != nil {
 		t.Fatalf("ReadPercent = %v, want nil", *options.ReadPercent)
+	}
+}
+
+func TestDecodeStartOptionsAcceptsExplicitResetFlag(t *testing.T) {
+	options, err := benchmark.DecodeStartOptions(strings.NewReader(`{"scale":12,"reset":true}`))
+	if err != nil {
+		t.Fatalf("DecodeStartOptions returned error: %v", err)
+	}
+
+	if !options.Reset {
+		t.Fatal("Reset = false, want true")
 	}
 }
 

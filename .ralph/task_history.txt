@@ -4,3 +4,4 @@
 .ralph/tasks/story-02-control-plane/task-01-benchmark-option-model.md
 .ralph/tasks/story-02-control-plane/task-02-run-coordinator.md
 .ralph/tasks/story-02-control-plane/task-03-http-json-api.md
+.ralph/tasks/story-03-core-benchmark/task-01-benchmark-schema-scale.md

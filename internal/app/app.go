@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"pg_gobench/internal/benchmarkrun"
+	"pg_gobench/internal/benchrunner"
 	"pg_gobench/internal/config"
 	"pg_gobench/internal/database"
 	"pg_gobench/internal/httpserver"
@@ -75,7 +76,7 @@ func Run(ctx context.Context, cfg Config, stdout, stderr io.Writer) (runErr erro
 		return fmt.Errorf("listen on %q: %w", cfg.Addr, err)
 	}
 
-	coordinator := benchmarkrun.New(nil)
+	coordinator := benchmarkrun.New(benchrunner.New(db))
 	server := httpserver.New(listener.Addr().String(), httpserver.Dependencies{
 		Benchmark: coordinator,
 		Ready: func(ctx context.Context) error {

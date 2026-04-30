@@ -324,6 +324,32 @@ func TestCoordinatorMarksWorkerFailureAsFailedAndExposesErrorInJSONState(t *test
 	}
 }
 
+func TestCoordinatorMarksStartFailureAsFailedAndExposesSetupError(t *testing.T) {
+	coordinator := benchmarkrun.New(&fakeRunner{
+		startErr: errors.New("setup benchmark schema: relation pg_gobench.accounts already exists"),
+	})
+
+	state, err := coordinator.Start(context.Background(), benchmark.StartOptions{
+		Scale:           10,
+		Clients:         2,
+		DurationSeconds: 60,
+		WarmupSeconds:   10,
+		Profile:         benchmark.ProfileRead,
+	})
+	if err == nil {
+		t.Fatal("Start returned nil error for setup failure")
+	}
+	if !strings.Contains(err.Error(), "setup benchmark schema") {
+		t.Fatalf("Start error = %q, want setup context", err)
+	}
+	if state.Status != benchmarkrun.StatusFailed {
+		t.Fatalf("Status = %q, want %q", state.Status, benchmarkrun.StatusFailed)
+	}
+	if state.Error != err.Error() {
+		t.Fatalf("Error = %q, want %q", state.Error, err.Error())
+	}
+}
+
 type fakeRunner struct {
 	run            benchmarkrun.Run
 	startErr       error
