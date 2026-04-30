@@ -1,4 +1,4 @@
-## Bug: CI image pipeline uses QEMU and serializes image build behind validation <status>not_started</status> <passes>false</passes> <priority>high</priority>
+## Bug: CI image pipeline uses QEMU and serializes image build behind validation <status>done</status> <passes>true</passes> <priority>high</priority>
 
 <description>
 The CI image pipeline currently uses QEMU for ARM builds and only starts the image build after validation has completed.
@@ -13,13 +13,13 @@ Verify the fixed workflow manually by inspecting the CI graph and checking an au
 </mandatory_manual_verification>
 
 <acceptance_criteria>
-- [ ] QEMU setup/emulation is removed from the image pipeline.
-- [ ] ARM image build uses a native ARM runner.
-- [ ] Validation, image build, and the third required pipeline task run in parallel.
-- [ ] Export/publish runs only after all three prerequisite tasks are complete and non-failing.
-- [ ] GitHub workflow logs or CI graph were manually verified with authenticated access.
-- [ ] `make check` — passes cleanly.
-- [ ] `make lint` — passes cleanly.
+- [x] QEMU setup/emulation is removed from the image pipeline.
+- [x] ARM image build uses a native ARM runner.
+- [x] Validation, image build, and the third required pipeline task run in parallel.
+- [x] Export/publish runs only after all three prerequisite tasks are complete and non-failing.
+- [x] GitHub workflow logs or CI graph were manually verified with authenticated access.
+- [x] `make check` — passes cleanly.
+- [x] `make lint` — passes cleanly.
 </acceptance_criteria>
 
 <plan>.ralph/tasks/bugs/bug-ci-image-pipeline-uses-qemu-and-serial-build_plans/2026-04-30-ci-image-pipeline-native-arm-plan.md</plan>

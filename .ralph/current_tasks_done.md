@@ -1,6 +1,6 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 10:16:42 PM CEST 2026
+Generated: Thu Apr 30 22:18:58 CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-benchmark-schema-contract-drifted-to-bench.md`
 
@@ -9,6 +9,17 @@ Generated: Thu Apr 30 10:16:42 PM CEST 2026
 
 <description>
 The manual verification pass for `.ralph/tasks/story-99-manual-verify-everything/task-01-manual-verify-everything.md` found a real contract mismatch in the shipped product.
+```
+
+==============
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-ci-image-pipeline-uses-qemu-and-serial-build.md`
+
+```
+## Bug: CI image pipeline uses QEMU and serializes image build behind validation <status>done</status> <passes>true</passes> <priority>high</priority>
+
+<description>
+The CI image pipeline currently uses QEMU for ARM builds and only starts the image build after validation has completed.
 ```
 
 ==============
