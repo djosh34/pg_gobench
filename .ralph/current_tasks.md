@@ -1,18 +1,6 @@
 # Current Tasks Summary
 
-Generated: Thu Apr 30 04:10:14 AM CEST 2026
-
-# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-08-release-docs/task-01-github-actions-multiarch-ghcr.md`
-
-```
-## Task: 01 Add GitHub Actions Multi-Arch GHCR Publish Workflow <status>not_started</status> <passes>false</passes>
-
-<blocked_by>.ralph/tasks/story-07-k8s/task-01-k8s-simple-deployment-configmap.md</blocked_by>
-
-<description>
-```
-
-==============
+Generated: Thu Apr 30 04:16:55 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-08-release-docs/task-02-quickstart-docs.md`
 

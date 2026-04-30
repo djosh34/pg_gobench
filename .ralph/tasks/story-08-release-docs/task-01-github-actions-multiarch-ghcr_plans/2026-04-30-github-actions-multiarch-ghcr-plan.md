@@ -113,14 +113,14 @@ This task is a TDD exception because it is a workflow task. Verification must ex
 
 Planned execution slices:
 
-- [ ] Slice 1: add the workflow file and validate local syntax with `actionlint`
-- [ ] Slice 2: run local repo gates honestly with `make check`, `make lint`, and `make test`
-- [ ] Slice 3: push the branch so GitHub Actions runs the workflow for a real commit SHA
-- [ ] Slice 4: inspect the workflow run and confirm `validate` completes before any publish work starts
-- [ ] Slice 5: confirm both platform build matrix legs execute and complete successfully
-- [ ] Slice 6: confirm the final publish job creates exactly one canonical SHA tag without `-amd64` or `-arm64`
-- [ ] Slice 7: inspect the published manifest and verify it reports both `linux/amd64` and `linux/arm64`
-- [ ] Slice 8: do one final `improve-code-boundaries` pass to ensure no duplicate tagging logic or helper-script release path was introduced
+- [x] Slice 1: add the workflow file and validate local syntax with `actionlint`
+- [x] Slice 2: run local repo gates honestly with `make check`, `make lint`, and `make test`
+- [x] Slice 3: push the branch so GitHub Actions runs the workflow for a real commit SHA
+- [x] Slice 4: inspect the workflow run and confirm `validate` completes before any publish work starts
+- [x] Slice 5: confirm both platform build matrix legs execute and complete successfully
+- [x] Slice 6: confirm the final publish job creates exactly one canonical SHA tag without `-amd64` or `-arm64`
+- [x] Slice 7: inspect the published manifest and verify it reports both `linux/amd64` and `linux/arm64`
+- [x] Slice 8: do one final `improve-code-boundaries` pass to ensure no duplicate tagging logic or helper-script release path was introduced
 
 Planned verification commands during execution:
 
