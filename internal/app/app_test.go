@@ -34,6 +34,7 @@ func TestParseConfig(t *testing.T) {
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     value: postgres
   password:
@@ -55,6 +56,7 @@ source:
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     value: postgres
   password:
@@ -236,6 +238,7 @@ func testSourceConfig() config.Source {
 	return config.Source{
 		Host:     "127.0.0.1",
 		Port:     1,
+		SSLMode:  config.SSLModeDisable,
 		Username: "postgres",
 		Password: "secret",
 		DBName:   "postgres",

@@ -25,6 +25,7 @@ func TestOpenReturnsDatabaseHandleForValidatedSource(t *testing.T) {
 	db, err := database.Open(config.Source{
 		Host:     "127.0.0.1",
 		Port:     5432,
+		SSLMode:  config.SSLModeDisable,
 		Username: "postgres",
 		Password: "secret",
 		DBName:   "postgres",
@@ -45,6 +46,7 @@ func TestOpenRejectsUnreadableTLSRootCertificate(t *testing.T) {
 	_, err := database.Open(config.Source{
 		Host:     "127.0.0.1",
 		Port:     5432,
+		SSLMode:  config.SSLModeVerifyFull,
 		Username: "postgres",
 		Password: "secret",
 		DBName:   "postgres",
@@ -66,6 +68,7 @@ func TestOpenLoadsTLSRootCertificatePath(t *testing.T) {
 	db, err := database.Open(config.Source{
 		Host:     "localhost",
 		Port:     5432,
+		SSLMode:  config.SSLModeVerifyFull,
 		Username: "postgres",
 		Password: "secret",
 		DBName:   "postgres",

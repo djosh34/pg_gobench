@@ -2,6 +2,7 @@ source:
   host: postgres
   port: 5432
   dbname: pg_gobench
+  sslmode: disable
   username:
     env-ref: POSTGRES_USERNAME
   password:

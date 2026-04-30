@@ -15,6 +15,7 @@ This quick start is the canonical operator guide for local usage. The Compose an
 `pg_gobench` only supports file-based YAML configuration through `-config /path/to/pg_gobench.yaml`.
 
 - `source.host`, `source.port`, and `source.dbname` are literal YAML values.
+- `source.sslmode` is required and must be one of `disable`, `allow`, `prefer`, `require`, `verify-ca`, or `verify-full`.
 - `source.tls.ca_cert`, `source.tls.cert`, and `source.tls.key` are literal filesystem paths.
 - Only `source.username` and `source.password` support credential modes.
 - Connection strings are not supported.
@@ -28,6 +29,7 @@ source:
   host: postgres
   port: 5432
   dbname: pg_gobench
+  sslmode: verify-full
   username:
     env-ref: POSTGRES_USERNAME
   password:
@@ -44,6 +46,7 @@ Use a literal value:
 
 ```yaml
 source:
+  sslmode: disable
   username:
     value: benchmark_user
   password:
@@ -54,6 +57,7 @@ Read from an environment variable by name:
 
 ```yaml
 source:
+  sslmode: disable
   username:
     env-ref: POSTGRES_USERNAME
   password:
@@ -64,6 +68,7 @@ Read from a mounted secret file:
 
 ```yaml
 source:
+  sslmode: disable
   username:
     secret-file: /run/secrets/postgres-username
   password:

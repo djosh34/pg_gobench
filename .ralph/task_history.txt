@@ -29,3 +29,4 @@ NONE
 .ralph/tasks/story-09-ui/task-02-configurable-auth-and-api-url.md
 NONE
 .ralph/tasks/story-08-release-docs/task-03-upgrade-to-go-1-26-2.md
+.ralph/tasks/story-01-foundation/task-04-sslmode-config-param.md

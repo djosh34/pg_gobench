@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
-	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -36,7 +35,7 @@ func newConnConfig(source config.Source) (*pgx.ConnConfig, error) {
 	}
 
 	query := connURL.Query()
-	query.Set("sslmode", sslMode(source.TLS))
+	query.Set("sslmode", string(source.SSLMode))
 	connURL.RawQuery = query.Encode()
 
 	connConfig, err := pgx.ParseConfig(connURL.String())
@@ -63,26 +62,11 @@ func CheckReadiness(ctx context.Context, db pinger) error {
 	return nil
 }
 
-func sslMode(cfg config.TLS) string {
-	if hasTLS(cfg) {
-		return "verify-full"
-	}
-
-	return "disable"
-}
-
 func hasTLS(cfg config.TLS) bool {
 	return cfg.CACert != "" || cfg.Cert != "" || cfg.Key != ""
 }
 
 func buildTLSConfig(cfg config.TLS, base *tls.Config) (*tls.Config, error) {
-	if cfg.Cert == "" && cfg.Key != "" {
-		return nil, errors.New("source.tls.cert is required when source.tls.key is set")
-	}
-	if cfg.Key == "" && cfg.Cert != "" {
-		return nil, errors.New("source.tls.key is required when source.tls.cert is set")
-	}
-
 	tlsConfig := &tls.Config{}
 	if base != nil {
 		tlsConfig = base.Clone()

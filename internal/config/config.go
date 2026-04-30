@@ -18,11 +18,14 @@ type Config struct {
 type Source struct {
 	Host     string
 	Port     int
+	SSLMode  SSLMode
 	Username string
 	Password string
 	DBName   string
 	TLS      TLS
 }
+
+type SSLMode string
 
 type TLS struct {
 	CACert string
@@ -36,6 +39,13 @@ const (
 	credentialSourceValue      credentialSourceKind = "value"
 	credentialSourceEnvRef     credentialSourceKind = "env-ref"
 	credentialSourceSecretFile credentialSourceKind = "secret-file"
+
+	SSLModeDisable    SSLMode = "disable"
+	SSLModeAllow      SSLMode = "allow"
+	SSLModePrefer     SSLMode = "prefer"
+	SSLModeRequire    SSLMode = "require"
+	SSLModeVerifyCA   SSLMode = "verify-ca"
+	SSLModeVerifyFull SSLMode = "verify-full"
 )
 
 type credentialSource struct {
@@ -97,7 +107,7 @@ func parseSource(node *yaml.Node) (Source, error) {
 	if err != nil {
 		return Source{}, err
 	}
-	if err := rejectUnknownFields(fields, "source", "host", "port", "username", "password", "dbname", "tls"); err != nil {
+	if err := rejectUnknownFields(fields, "source", "host", "port", "sslmode", "username", "password", "dbname", "tls"); err != nil {
 		return Source{}, err
 	}
 
@@ -107,6 +117,11 @@ func parseSource(node *yaml.Node) (Source, error) {
 	}
 
 	port, err := requiredPortField(fields, "source.port", "port")
+	if err != nil {
+		return Source{}, err
+	}
+
+	sslMode, err := requiredSSLModeField(fields, "source.sslmode", "sslmode")
 	if err != nil {
 		return Source{}, err
 	}
@@ -130,15 +145,41 @@ func parseSource(node *yaml.Node) (Source, error) {
 	if err != nil {
 		return Source{}, err
 	}
+	if err := validateSourceTLS(sslMode, tls); err != nil {
+		return Source{}, err
+	}
 
 	return Source{
 		Host:     host,
 		Port:     port,
+		SSLMode:  sslMode,
 		Username: username,
 		Password: password,
 		DBName:   dbName,
 		TLS:      tls,
 	}, nil
+}
+
+func validateSourceTLS(sslMode SSLMode, tls TLS) error {
+	if sslMode == SSLModeDisable {
+		if tls.CACert != "" {
+			return errors.New("source.tls.ca_cert must not be set when source.sslmode is disable")
+		}
+		if tls.Cert != "" {
+			return errors.New("source.tls.cert must not be set when source.sslmode is disable")
+		}
+		if tls.Key != "" {
+			return errors.New("source.tls.key must not be set when source.sslmode is disable")
+		}
+	}
+	if tls.Cert == "" && tls.Key != "" {
+		return errors.New("source.tls.cert is required when source.tls.key is set")
+	}
+	if tls.Key == "" && tls.Cert != "" {
+		return errors.New("source.tls.key is required when source.tls.cert is set")
+	}
+
+	return nil
 }
 
 func optionalTLSField(node *yaml.Node) (TLS, error) {
@@ -282,6 +323,25 @@ func requiredPortField(fields map[string]*yaml.Node, fieldPath, key string) (int
 	}
 
 	return port, nil
+}
+
+func requiredSSLModeField(fields map[string]*yaml.Node, fieldPath, key string) (SSLMode, error) {
+	node, ok := fields[key]
+	if !ok {
+		return "", fmt.Errorf("%s is required", fieldPath)
+	}
+
+	value, err := requiredScalarString(node, fieldPath)
+	if err != nil {
+		return "", err
+	}
+
+	switch SSLMode(value) {
+	case SSLModeDisable, SSLModeAllow, SSLModePrefer, SSLModeRequire, SSLModeVerifyCA, SSLModeVerifyFull:
+		return SSLMode(value), nil
+	default:
+		return "", fmt.Errorf("%s must be one of disable, allow, prefer, require, verify-ca, or verify-full", fieldPath)
+	}
 }
 
 func requiredStringField(fields map[string]*yaml.Node, fieldPath, key string) (string, error) {

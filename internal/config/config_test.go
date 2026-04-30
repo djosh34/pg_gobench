@@ -18,6 +18,7 @@ func TestLoadResolvesEnvRefCredentials(t *testing.T) {
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     env-ref: POSTGRES_USERNAME
   password:
@@ -45,6 +46,7 @@ func TestLoadRejectsMissingOrEmptyEnvRefCredentials(t *testing.T) {
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     env-ref: POSTGRES_USERNAME
   password:
@@ -69,6 +71,7 @@ source:
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     env-ref: POSTGRES_USERNAME
   password:
@@ -94,6 +97,7 @@ func TestLoadResolvesSecretFileCredentials(t *testing.T) {
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     secret-file: `+usernamePath+`
   password:
@@ -113,6 +117,264 @@ source:
 	}
 }
 
+func TestLoadExposesConfiguredSSLMode(t *testing.T) {
+	path := writeConfigFile(t, `
+source:
+  host: localhost
+  port: 5432
+  sslmode: verify-full
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+`)
+
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.Source.SSLMode != config.SSLModeVerifyFull {
+		t.Fatalf("SSLMode = %q, want %q", cfg.Source.SSLMode, config.SSLModeVerifyFull)
+	}
+}
+
+func TestLoadRejectsInvalidSSLModeValues(t *testing.T) {
+	testCases := []struct {
+		name     string
+		contents string
+	}{
+		{
+			name: "missing sslmode",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+`,
+		},
+		{
+			name: "empty sslmode",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  sslmode: ""
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+`,
+		},
+		{
+			name: "non string sslmode",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  sslmode:
+    mode: verify-full
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+`,
+		},
+		{
+			name: "unknown sslmode",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  sslmode: verify-hostname
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := writeConfigFile(t, tc.contents)
+
+			_, err := config.Load(path)
+			if err == nil {
+				t.Fatal("Load returned nil error for invalid source.sslmode")
+			}
+			if !strings.Contains(err.Error(), "source.sslmode") {
+				t.Fatalf("Load error = %q, want mention of source.sslmode", err)
+			}
+		})
+	}
+}
+
+func TestLoadTreatsSSLModeAsLiteralOnly(t *testing.T) {
+	testCases := []struct {
+		name     string
+		contents string
+	}{
+		{
+			name: "env ref mapping",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  sslmode:
+    env-ref: PGSSLMODE
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+`,
+		},
+		{
+			name: "secret file mapping",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  sslmode:
+    secret-file: /run/secrets/pgsslmode
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+`,
+		},
+		{
+			name: "connection string fragment",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  sslmode: sslmode=verify-full
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := writeConfigFile(t, tc.contents)
+
+			_, err := config.Load(path)
+			if err == nil {
+				t.Fatal("Load returned nil error for non-literal source.sslmode")
+			}
+			if !strings.Contains(err.Error(), "source.sslmode") {
+				t.Fatalf("Load error = %q, want mention of source.sslmode", err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsIncompatibleSSLModeAndTLSConfig(t *testing.T) {
+	testCases := []struct {
+		name        string
+		contents    string
+		wantMessage string
+	}{
+		{
+			name: "disable with ca cert path",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  sslmode: disable
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+  tls:
+    ca_cert: /run/certs/ca.pem
+`,
+			wantMessage: "source.tls.ca_cert",
+		},
+		{
+			name: "disable with client cert path",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  sslmode: disable
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+  tls:
+    cert: /run/certs/client.crt
+    key: /run/certs/client.key
+`,
+			wantMessage: "source.tls.cert",
+		},
+		{
+			name: "client cert without key",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  sslmode: verify-full
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+  tls:
+    cert: /run/certs/client.crt
+`,
+			wantMessage: "source.tls.key",
+		},
+		{
+			name: "client key without cert",
+			contents: `
+source:
+  host: localhost
+  port: 5432
+  sslmode: verify-full
+  username:
+    value: postgres
+  password:
+    value: secret
+  dbname: postgres
+  tls:
+    key: /run/certs/client.key
+`,
+			wantMessage: "source.tls.cert",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := writeConfigFile(t, tc.contents)
+
+			_, err := config.Load(path)
+			if err == nil {
+				t.Fatal("Load returned nil error for incompatible source.tls and source.sslmode")
+			}
+			if !strings.Contains(err.Error(), tc.wantMessage) {
+				t.Fatalf("Load error = %q, want mention of %q", err, tc.wantMessage)
+			}
+		})
+	}
+}
+
 func TestLoadRejectsUnreadableOrEmptySecretFileCredentials(t *testing.T) {
 	t.Run("missing username secret file", func(t *testing.T) {
 		passwordPath := writeSecretFile(t, "secret\n")
@@ -121,6 +383,7 @@ func TestLoadRejectsUnreadableOrEmptySecretFileCredentials(t *testing.T) {
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     secret-file: `+filepath.Join(t.TempDir(), "missing-user")+`
   password:
@@ -145,6 +408,7 @@ source:
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     secret-file: `+usernamePath+`
   password:
@@ -174,6 +438,7 @@ func TestLoadRejectsInvalidConfigShape(t *testing.T) {
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     value: postgres
   password:
@@ -196,6 +461,7 @@ other:
 			contents: `
 source:
   port: 5432
+  sslmode: disable
   username:
     value: postgres
   password:
@@ -210,6 +476,7 @@ source:
 source:
   host: localhost
   port: 65536
+  sslmode: disable
   username:
     value: postgres
   password:
@@ -224,6 +491,7 @@ source:
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     value: postgres
     env-ref: POSTGRES_USERNAME
@@ -255,6 +523,7 @@ func TestLoadRejectsMultiSourceCredentialBeforeEnvResolution(t *testing.T) {
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     value: postgres
     env-ref: POSTGRES_USERNAME
@@ -283,6 +552,7 @@ func TestLoadDoesNotExpandEnvOutsideExplicitCredentialRefs(t *testing.T) {
 source:
   host: ${DB_HOST}
   port: 5432
+  sslmode: verify-full
   username:
     value: ${POSTGRES_USERNAME}
   password:
@@ -290,6 +560,7 @@ source:
   dbname: postgres
   tls:
     cert: ${TLS_CERT_PATH}
+    key: ${TLS_CERT_PATH}.key
 `)
 
 	cfg, err := config.Load(path)
@@ -308,6 +579,9 @@ source:
 	if cfg.Source.TLS.Cert != "${TLS_CERT_PATH}" {
 		t.Fatalf("TLS.Cert = %q, want literal env placeholder", cfg.Source.TLS.Cert)
 	}
+	if cfg.Source.TLS.Key != "${TLS_CERT_PATH}.key" {
+		t.Fatalf("TLS.Key = %q, want literal env placeholder", cfg.Source.TLS.Key)
+	}
 }
 
 func TestLoadTreatsTLSValuesAsPathsOnly(t *testing.T) {
@@ -315,6 +589,7 @@ func TestLoadTreatsTLSValuesAsPathsOnly(t *testing.T) {
 source:
   host: localhost
   port: 5432
+  sslmode: disable
   username:
     value: postgres
   password:
