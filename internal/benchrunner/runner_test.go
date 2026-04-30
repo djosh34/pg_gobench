@@ -28,7 +28,7 @@ func TestRunnerJoinProfileExecutesJoinAndAggregationQueriesThroughDatabaseSQL(t 
 	db, recorder = openDriverDB(t, testDriverConfig{
 		onQuery: func(call recordedCall) driver.Rows {
 			switch {
-			case strings.Contains(call.query, "JOIN pg_gobench.branches"):
+			case strings.Contains(call.query, "JOIN "+benchmarkTable("branches")):
 				recorder.markObserved("join")
 				return rowsWithColumns([]string{"account_id", "account_name", "branch_name", "teller_name", "balance"}, [][]driver.Value{{int64(1), "account-1", "branch-1", "teller-1", int64(0)}})
 			case strings.Contains(call.query, "GROUP BY a.branch_id"):
@@ -193,6 +193,56 @@ func TestRunnerReadProfileExecutesPointAndRangeQueriesThroughDatabaseSQL(t *test
 	}
 }
 
+func TestRunnerStartAvoidsReservedPostgresSchemaPrefix(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var db *sql.DB
+	db, _ = openDriverDB(t, testDriverConfig{
+		onExec: func(call recordedCall) error {
+			if strings.Contains(call.query, "pg_gobench") {
+				return fmt.Errorf(`ERROR: unacceptable schema name "pg_gobench" (SQLSTATE 42939)`)
+			}
+			return nil
+		},
+		onQuery: func(call recordedCall) driver.Rows {
+			if strings.Contains(call.query, "pg_gobench") {
+				panic(fmt.Sprintf("reserved schema leaked into workload query: %s", call.query))
+			}
+			switch {
+			case strings.Contains(call.query, "SELECT balance, name"):
+				return rowsWithColumns([]string{"balance", "name"}, [][]driver.Value{{int64(0), "account-1"}})
+			case strings.Contains(call.query, "SELECT id, balance"):
+				cancel()
+				return rowsWithColumns([]string{"id", "balance"}, [][]driver.Value{{int64(1), int64(0)}})
+			default:
+				return rowsWithColumns([]string{"ignored"}, nil)
+			}
+		},
+	})
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("Close db: %v", err)
+		}
+	})
+
+	run, err := New(db).Start(ctx, benchmark.StartOptions{
+		Scale:           1,
+		Clients:         1,
+		DurationSeconds: 600,
+		WarmupSeconds:   10,
+		Profile:         benchmark.ProfileRead,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	waitErr := run.Wait()
+	if !errors.Is(waitErr, context.Canceled) {
+		t.Fatalf("Wait error = %v, want %v", waitErr, context.Canceled)
+	}
+}
+
 func TestRunnerWriteProfileExecutesInsertAndUpdateThroughDatabaseSQL(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -204,9 +254,9 @@ func TestRunnerWriteProfileExecutesInsertAndUpdateThroughDatabaseSQL(t *testing.
 	db, recorder = openDriverDB(t, testDriverConfig{
 		onExec: func(call recordedCall) error {
 			switch {
-			case strings.Contains(call.query, "INSERT INTO pg_gobench.history"):
+			case strings.Contains(call.query, "INSERT INTO "+benchmarkTable("history")):
 				recorder.markObserved("history-insert")
-			case strings.Contains(call.query, "UPDATE pg_gobench.accounts"):
+			case strings.Contains(call.query, "UPDATE "+benchmarkTable("accounts")):
 				recorder.markObserved("account-update")
 				cancel()
 			}
@@ -306,7 +356,7 @@ func TestRunnerMixedProfileUsesReadPercentToChooseFamily(t *testing.T) {
 		)
 		db, recorder = openDriverDB(t, testDriverConfig{
 			onExec: func(call recordedCall) error {
-				if strings.Contains(call.query, "INSERT INTO pg_gobench.history") || strings.Contains(call.query, "UPDATE pg_gobench.accounts") {
+				if strings.Contains(call.query, "INSERT INTO "+benchmarkTable("history")) || strings.Contains(call.query, "UPDATE "+benchmarkTable("accounts")) {
 					recorder.markObserved("mixed-write")
 					cancel()
 				}
@@ -364,7 +414,7 @@ func TestRunnerTransactionProfileUsesDatabaseSQLTransactions(t *testing.T) {
 			return rowsWithColumns([]string{"id", "balance"}, [][]driver.Value{{int64(1), int64(0)}})
 		},
 		onExec: func(call recordedCall) error {
-			if call.inTx && strings.Contains(call.query, "INSERT INTO pg_gobench.history") {
+			if call.inTx && strings.Contains(call.query, "INSERT INTO "+benchmarkTable("history")) {
 				recorder.markObserved("tx-insert")
 			}
 			return nil
@@ -417,7 +467,7 @@ func TestRunnerTransactionProfileUsesDatabaseSQLTransactions(t *testing.T) {
 func TestCoordinatorMarksBenchrunnerWorkerSQLFailureAsFailed(t *testing.T) {
 	db, _ := openDriverDB(t, testDriverConfig{
 		onExec: func(call recordedCall) error {
-			if strings.Contains(call.query, "UPDATE pg_gobench.accounts") {
+			if strings.Contains(call.query, "UPDATE "+benchmarkTable("accounts")) {
 				return fmt.Errorf("synthetic workload failure")
 			}
 			return nil
@@ -740,7 +790,7 @@ func isWorkloadRead(query string) bool {
 }
 
 func isWorkloadWrite(query string) bool {
-	return strings.Contains(query, "INSERT INTO pg_gobench.history") || strings.Contains(query, "UPDATE pg_gobench.accounts")
+	return strings.Contains(query, "INSERT INTO "+benchmarkTable("history")) || strings.Contains(query, "UPDATE "+benchmarkTable("accounts"))
 }
 
 func intPtr(value int) *int {

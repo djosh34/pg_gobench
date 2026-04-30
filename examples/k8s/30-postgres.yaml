@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: pg-gobench
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:18-bookworm
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              value: pg_gobench
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: postgres-username
+            - name: POSTGRES_PASSWORD_FILE
+              value: /etc/postgres-secrets/postgres-password
+          volumeMounts:
+            - name: postgres-credentials
+              mountPath: /etc/postgres-secrets
+              readOnly: true
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -d "$POSTGRES_DB" -U "$POSTGRES_USER"
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -d "$POSTGRES_DB" -U "$POSTGRES_USER"
+            periodSeconds: 2
+            timeoutSeconds: 5
+            failureThreshold: 15
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -d "$POSTGRES_DB" -U "$POSTGRES_USER"
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+      volumes:
+        - name: postgres-credentials
+          secret:
+            secretName: postgres-credentials
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: pg-gobench
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

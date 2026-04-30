@@ -1,4 +1,4 @@
-## Task: 01 Add Ultra-Simple Kubernetes Deployment And ConfigMap <status>not_started</status> <passes>false</passes>
+## Task: 01 Add Ultra-Simple Kubernetes Deployment And ConfigMap <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-06-advanced-workloads/task-01-join-lock-contention-workloads.md</blocked_by>
 
@@ -13,14 +13,14 @@ This is a non-code deployment task. Do not use TDD for this task. Verification m
 </description>
 
 <acceptance_criteria>
-- [ ] Kubernetes manifests can be applied with one simple `kubectl apply` command.
-- [ ] Manifests include PostgreSQL or a clearly usable local-cluster PostgreSQL dependency.
-- [ ] Manifests include a ConfigMap containing the real `pg_gobench` YAML config.
-- [ ] Manifests include username/password handling through Kubernetes Secret material mounted or referenced only by the config-supported username/password mechanisms.
-- [ ] Manifests include a Deployment for the scratch `pg_gobench` image and a Service for its HTTP API.
-- [ ] Manifests do not introduce app-wide env-var configuration, HTTP auth, or HTTPS.
-- [ ] Manual verification: apply the manifests to a real local Kubernetes cluster with the documented single `kubectl apply` command.
-- [ ] Manual verification: wait for PostgreSQL and `pg_gobench` pods to become ready.
-- [ ] Manual verification: port-forward the service and call `/healthz`, `/readyz`, `/benchmark`, and `/metrics`.
-- [ ] Manual verification: start, observe, and stop at least one benchmark through the Kubernetes-deployed service, or immediately create an add-bug task for any failure.
+- [x] Kubernetes manifests can be applied with one simple `kubectl apply` command.
+- [x] Manifests include PostgreSQL or a clearly usable local-cluster PostgreSQL dependency.
+- [x] Manifests include a ConfigMap containing the real `pg_gobench` YAML config.
+- [x] Manifests include username/password handling through Kubernetes Secret material mounted or referenced only by the config-supported username/password mechanisms.
+- [x] Manifests include a Deployment for the scratch `pg_gobench` image and a Service for its HTTP API.
+- [x] Manifests do not introduce app-wide env-var configuration, HTTP auth, or HTTPS.
+- [x] Manual verification: apply the manifests to a real local Kubernetes cluster with the documented single `kubectl apply` command.
+- [x] Manual verification: wait for PostgreSQL and `pg_gobench` pods to become ready.
+- [x] Manual verification: port-forward the service and call `/healthz`, `/readyz`, `/benchmark`, and `/metrics`.
+- [x] Manual verification: start, observe, and stop at least one benchmark through the Kubernetes-deployed service, or immediately create an add-bug task for any failure.
 </acceptance_criteria>

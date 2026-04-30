@@ -12,3 +12,4 @@
 .ralph/tasks/story-05-delivery/task-01-scratch-dockerfile.md
 .ralph/tasks/story-05-delivery/task-02-docker-compose-postgres-example.md
 .ralph/tasks/story-06-advanced-workloads/task-01-join-lock-contention-workloads.md
+.ralph/tasks/story-07-k8s/task-01-k8s-simple-deployment-configmap.md

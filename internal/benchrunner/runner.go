@@ -10,7 +10,11 @@ import (
 	"pg_gobench/internal/benchmarkrun"
 )
 
-const benchmarkSchema = "pg_gobench"
+const benchmarkSchema = "bench"
+
+func benchmarkTable(name string) string {
+	return benchmarkSchema + "." + name
+}
 
 type clock interface {
 	After(time.Duration) <-chan time.Time
@@ -105,55 +109,55 @@ func (r runner) withDefaults() runner {
 func setupStatements(options benchmark.StartOptions, scale benchmark.ScaleModel) []string {
 	statements := make([]string, 0, 11)
 	if options.Reset {
-		statements = append(statements, "DROP SCHEMA IF EXISTS pg_gobench CASCADE")
+		statements = append(statements, fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", benchmarkSchema))
 	}
 
 	statements = append(statements,
-		"CREATE SCHEMA IF NOT EXISTS pg_gobench",
-		`CREATE TABLE IF NOT EXISTS pg_gobench.branches (
+		fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", benchmarkSchema),
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 			id integer PRIMARY KEY,
 			balance bigint NOT NULL,
 			name text NOT NULL
-		)`,
-		`CREATE TABLE IF NOT EXISTS pg_gobench.tellers (
+		)`, benchmarkTable("branches")),
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 			id integer PRIMARY KEY,
-			branch_id integer NOT NULL REFERENCES pg_gobench.branches(id),
+			branch_id integer NOT NULL REFERENCES %s(id),
 			balance bigint NOT NULL,
 			name text NOT NULL
-		)`,
-		`CREATE TABLE IF NOT EXISTS pg_gobench.accounts (
+		)`, benchmarkTable("tellers"), benchmarkTable("branches")),
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 			id bigint PRIMARY KEY,
-			branch_id integer NOT NULL REFERENCES pg_gobench.branches(id),
+			branch_id integer NOT NULL REFERENCES %s(id),
 			balance bigint NOT NULL,
 			name text NOT NULL
-		)`,
-		`CREATE TABLE IF NOT EXISTS pg_gobench.history (
+		)`, benchmarkTable("accounts"), benchmarkTable("branches")),
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 			id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-			account_id bigint NOT NULL REFERENCES pg_gobench.accounts(id),
-			teller_id integer NOT NULL REFERENCES pg_gobench.tellers(id),
-			branch_id integer NOT NULL REFERENCES pg_gobench.branches(id),
+			account_id bigint NOT NULL REFERENCES %s(id),
+			teller_id integer NOT NULL REFERENCES %s(id),
+			branch_id integer NOT NULL REFERENCES %s(id),
 			amount bigint NOT NULL,
 			note text NOT NULL,
 			created_at timestamptz NOT NULL
-		)`,
-		`CREATE INDEX IF NOT EXISTS pg_gobench_accounts_branch_id_id_idx
-			ON pg_gobench.accounts (branch_id, id)`,
-		`CREATE INDEX IF NOT EXISTS pg_gobench_tellers_branch_id_id_idx
-			ON pg_gobench.tellers (branch_id, id)`,
-		`CREATE INDEX IF NOT EXISTS pg_gobench_history_account_id_created_at_idx
-			ON pg_gobench.history (account_id, created_at)`,
-		fmt.Sprintf(`INSERT INTO pg_gobench.branches (id, balance, name)
+		)`, benchmarkTable("history"), benchmarkTable("accounts"), benchmarkTable("tellers"), benchmarkTable("branches")),
+		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS bench_accounts_branch_id_id_idx
+			ON %s (branch_id, id)`, benchmarkTable("accounts")),
+		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS bench_tellers_branch_id_id_idx
+			ON %s (branch_id, id)`, benchmarkTable("tellers")),
+		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS bench_history_account_id_created_at_idx
+			ON %s (account_id, created_at)`, benchmarkTable("history")),
+		fmt.Sprintf(`INSERT INTO %s (id, balance, name)
 SELECT id, 0, format('branch-%%s', id)
 FROM generate_series(1, %d) AS id
-WHERE NOT EXISTS (SELECT 1 FROM pg_gobench.branches LIMIT 1)`, scale.Branches),
-		fmt.Sprintf(`INSERT INTO pg_gobench.tellers (id, branch_id, balance, name)
+WHERE NOT EXISTS (SELECT 1 FROM %s LIMIT 1)`, benchmarkTable("branches"), scale.Branches, benchmarkTable("branches")),
+		fmt.Sprintf(`INSERT INTO %s (id, branch_id, balance, name)
 SELECT id, ((id - 1) / 10) + 1, 0, format('teller-%%s', id)
 FROM generate_series(1, %d) AS id
-WHERE NOT EXISTS (SELECT 1 FROM pg_gobench.tellers LIMIT 1)`, scale.Tellers),
-		fmt.Sprintf(`INSERT INTO pg_gobench.accounts (id, branch_id, balance, name)
+WHERE NOT EXISTS (SELECT 1 FROM %s LIMIT 1)`, benchmarkTable("tellers"), scale.Tellers, benchmarkTable("tellers")),
+		fmt.Sprintf(`INSERT INTO %s (id, branch_id, balance, name)
 SELECT id, ((id - 1) %% %d) + 1, 0, format('account-%%s', id)
 FROM generate_series(1, %d) AS id
-WHERE NOT EXISTS (SELECT 1 FROM pg_gobench.accounts LIMIT 1)`, scale.Branches, scale.Accounts),
+WHERE NOT EXISTS (SELECT 1 FROM %s LIMIT 1)`, benchmarkTable("accounts"), scale.Branches, scale.Accounts, benchmarkTable("accounts")),
 	)
 
 	return statements

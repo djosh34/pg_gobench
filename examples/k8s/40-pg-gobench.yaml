@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pg-gobench
+  namespace: pg-gobench
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pg-gobench
+  template:
+    metadata:
+      labels:
+        app: pg-gobench
+    spec:
+      containers:
+        - name: pg-gobench
+          image: pg_gobench:local
+          imagePullPolicy: IfNotPresent
+          args:
+            - -config
+            - /app/config/pg_gobench.yaml
+            - -addr
+            - 0.0.0.0:8080
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: postgres-credentials
+              mountPath: /etc/pg-gobench-secrets
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+            timeoutSeconds: 5
+            failureThreshold: 15
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+      volumes:
+        - name: config
+          configMap:
+            name: pg-gobench-config
+        - name: postgres-credentials
+          secret:
+            secretName: postgres-credentials
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pg-gobench
+  namespace: pg-gobench
+spec:
+  selector:
+    app: pg-gobench
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

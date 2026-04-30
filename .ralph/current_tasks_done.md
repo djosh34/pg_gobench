@@ -1,6 +1,17 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 03:48:02 AM CEST 2026
+Generated: Thu Apr 30 04:02:51 AM CEST 2026
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-postgres-reserved-schema-name-breaks-benchmark-start.md`
+
+```
+## Bug: PostgreSQL benchmark start fails because schema name uses reserved `pg_` prefix <status>done</status> <passes>true</passes> <priority>high</priority>
+
+<description>
+Manual verification for `.ralph/tasks/story-07-k8s/task-01-k8s-simple-deployment-configmap.md` hit a real runtime failure after the Kubernetes deployment became healthy.
+```
+
+==============
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/smells/2026-04-30-prometheus-metrics-boundary-smells.md`
 
@@ -163,6 +174,18 @@ Must use tdd skill to complete
 ## Task: 01 Add Join Lock And Contention Workloads <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-05-delivery/task-02-docker-compose-postgres-example.md</blocked_by>
+
+<description>
+```
+
+==============
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-07-k8s/task-01-k8s-simple-deployment-configmap.md`
+
+```
+## Task: 01 Add Ultra-Simple Kubernetes Deployment And ConfigMap <status>done</status> <passes>true</passes>
+
+<blocked_by>.ralph/tasks/story-06-advanced-workloads/task-01-join-lock-contention-workloads.md</blocked_by>
 
 <description>
 ```

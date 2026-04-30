@@ -53,9 +53,9 @@ func runTransactionalOperation(
 func pointReadQuery(ctx context.Context, executor sqlExecutor, account int64) error {
 	return executor.QueryRowContext(
 		ctx,
-		`SELECT balance, name
-FROM pg_gobench.accounts
-WHERE id = $1`,
+		fmt.Sprintf(`SELECT balance, name
+FROM %s
+WHERE id = $1`, benchmarkTable("accounts")),
 		account,
 	).Scan(new(int64), new(string))
 }
@@ -63,11 +63,11 @@ WHERE id = $1`,
 func rangeReadQuery(ctx context.Context, executor sqlExecutor, branch int, startID int64, endID int64) error {
 	rows, err := executor.QueryContext(
 		ctx,
-		`SELECT id, balance
-FROM pg_gobench.accounts
+		fmt.Sprintf(`SELECT id, balance
+FROM %s
 WHERE branch_id = $1
   AND id BETWEEN $2 AND $3
-ORDER BY id`,
+ORDER BY id`, benchmarkTable("accounts")),
 		branch,
 		startID,
 		endID,
@@ -97,8 +97,8 @@ func historyInsertQuery(
 ) error {
 	_, err := executor.ExecContext(
 		ctx,
-		`INSERT INTO pg_gobench.history (account_id, teller_id, branch_id, amount, note, created_at)
-VALUES ($1, $2, $3, $4, $5, $6)`,
+		fmt.Sprintf(`INSERT INTO %s (account_id, teller_id, branch_id, amount, note, created_at)
+VALUES ($1, $2, $3, $4, $5, $6)`, benchmarkTable("history")),
 		account,
 		teller,
 		branch,
@@ -112,9 +112,9 @@ VALUES ($1, $2, $3, $4, $5, $6)`,
 func accountUpdateQuery(ctx context.Context, executor sqlExecutor, account int64, value int64) error {
 	_, err := executor.ExecContext(
 		ctx,
-		`UPDATE pg_gobench.accounts
+		fmt.Sprintf(`UPDATE %s
 SET balance = balance + $1
-WHERE id = $2`,
+WHERE id = $2`, benchmarkTable("accounts")),
 		value,
 		account,
 	)
@@ -124,13 +124,13 @@ WHERE id = $2`,
 func joinQuery(ctx context.Context, executor sqlExecutor, account int64) error {
 	return executor.QueryRowContext(
 		ctx,
-		`SELECT a.id, a.name, b.name, t.name, a.balance
-FROM pg_gobench.accounts AS a
-JOIN pg_gobench.branches AS b ON b.id = a.branch_id
-JOIN pg_gobench.tellers AS t ON t.branch_id = b.id
+		fmt.Sprintf(`SELECT a.id, a.name, b.name, t.name, a.balance
+FROM %s AS a
+JOIN %s AS b ON b.id = a.branch_id
+JOIN %s AS t ON t.branch_id = b.id
 WHERE a.id = $1
 ORDER BY t.id
-LIMIT 1`,
+LIMIT 1`, benchmarkTable("accounts"), benchmarkTable("branches"), benchmarkTable("tellers")),
 		account,
 	).Scan(new(int64), new(string), new(string), new(string), new(int64))
 }
@@ -138,10 +138,10 @@ LIMIT 1`,
 func aggregationQuery(ctx context.Context, executor sqlExecutor, branch int) error {
 	rows, err := executor.QueryContext(
 		ctx,
-		`SELECT a.branch_id, COUNT(*), COALESCE(SUM(a.balance), 0)
-FROM pg_gobench.accounts AS a
+		fmt.Sprintf(`SELECT a.branch_id, COUNT(*), COALESCE(SUM(a.balance), 0)
+FROM %s AS a
 WHERE a.branch_id = $1
-GROUP BY a.branch_id`,
+GROUP BY a.branch_id`, benchmarkTable("accounts")),
 		branch,
 	)
 	if err != nil {
@@ -165,10 +165,10 @@ func setLocalLockTimeout(ctx context.Context, executor sqlExecutor, timeout stri
 func lockAccountNowaitQuery(ctx context.Context, executor sqlExecutor, account int64) error {
 	return executor.QueryRowContext(
 		ctx,
-		`SELECT id
-FROM pg_gobench.accounts
+		fmt.Sprintf(`SELECT id
+FROM %s
 WHERE id = $1
-FOR UPDATE NOWAIT`,
+FOR UPDATE NOWAIT`, benchmarkTable("accounts")),
 		account,
 	).Scan(new(int64))
 }

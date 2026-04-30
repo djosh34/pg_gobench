@@ -66,9 +66,9 @@ func (w *transactionWorkload) runTransaction(ctx context.Context, tx *sql.Tx, se
 	if w.mix == benchmark.TransactionMixWriteHeavy {
 		if _, err := tx.ExecContext(
 			ctx,
-			`UPDATE pg_gobench.tellers
+			fmt.Sprintf(`UPDATE %s
 SET balance = balance + $1
-WHERE id = $2`,
+WHERE id = $2`, benchmarkTable("tellers")),
 			value,
 			teller,
 		); err != nil {

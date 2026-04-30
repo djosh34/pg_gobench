@@ -1,18 +1,6 @@
 # Current Tasks Summary
 
-Generated: Thu Apr 30 03:48:02 AM CEST 2026
-
-# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-07-k8s/task-01-k8s-simple-deployment-configmap.md`
-
-```
-## Task: 01 Add Ultra-Simple Kubernetes Deployment And ConfigMap <status>not_started</status> <passes>false</passes>
-
-<blocked_by>.ralph/tasks/story-06-advanced-workloads/task-01-join-lock-contention-workloads.md</blocked_by>
-
-<description>
-```
-
-==============
+Generated: Thu Apr 30 04:02:51 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-08-release-docs/task-01-github-actions-multiarch-ghcr.md`
 

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pg-gobench-config
+  namespace: pg-gobench
+data:
+  pg_gobench.yaml: |
+    source:
+      host: postgres
+      port: 5432
+      dbname: pg_gobench
+      username:
+        secret-file: /etc/pg-gobench-secrets/postgres-username
+      password:
+        secret-file: /etc/pg-gobench-secrets/postgres-password
