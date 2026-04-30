@@ -23,3 +23,5 @@ This is a toolchain, Dockerfile, and workflow verification task. Do not use the 
 - [ ] Authenticated GitHub verification using `/home/joshazimullah.linux/github-api-curl` or equivalent confirms the GHCR workflow completed successfully for the upgraded commit.
 - [ ] GHCR/package verification confirms the upgraded commit's image tag was pushed successfully to `ghcr.io/<owner>/<repo>:<github-sha>`.
 </acceptance_criteria>
+
+<plan>.ralph/tasks/story-08-release-docs/task-03-upgrade-to-go-1-26-2_plans/2026-04-30-upgrade-to-go-1-26-2-plan.md</plan>
