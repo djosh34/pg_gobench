@@ -12,6 +12,17 @@ import (
 
 const defaultMixedReadPercent = 80
 
+type operationKind int
+
+const (
+	operationKindPointRead operationKind = iota
+	operationKindRangeRead
+	operationKindHistoryInsert
+	operationKindAccountUpdate
+	operationKindTransaction
+	operationKindCount
+)
+
 func newSQLWorkloadPlan(options benchmark.StartOptions, scale benchmark.ScaleModel) (workloadPlan, error) {
 	switch options.Profile {
 	case benchmark.ProfileRead:
@@ -41,7 +52,7 @@ type readWorkload struct {
 	counter atomic.Uint64
 }
 
-func (w *readWorkload) RunOnce(ctx context.Context, session *workerSession) error {
+func (w *readWorkload) RunOnce(ctx context.Context, session *workerSession) (operationKind, error) {
 	iteration := w.counter.Add(1)
 	if iteration%2 == 1 {
 		return w.runPointRead(ctx, session, iteration)
@@ -49,7 +60,7 @@ func (w *readWorkload) RunOnce(ctx context.Context, session *workerSession) erro
 	return w.runRangeRead(ctx, session, iteration)
 }
 
-func (w *readWorkload) runPointRead(ctx context.Context, session *workerSession, iteration uint64) error {
+func (w *readWorkload) runPointRead(ctx context.Context, session *workerSession, iteration uint64) (operationKind, error) {
 	var (
 		balance int64
 		name    string
@@ -58,15 +69,15 @@ func (w *readWorkload) runPointRead(ctx context.Context, session *workerSession,
 		ctx,
 		`SELECT balance, name
 FROM pg_gobench.accounts
-WHERE id = $1`,
+	WHERE id = $1`,
 		accountID(iteration, w.scale),
 	).Scan(&balance, &name); err != nil {
-		return fmt.Errorf("point read: %w", err)
+		return operationKindPointRead, fmt.Errorf("point read: %w", err)
 	}
-	return nil
+	return operationKindPointRead, nil
 }
 
-func (w *readWorkload) runRangeRead(ctx context.Context, session *workerSession, iteration uint64) error {
+func (w *readWorkload) runRangeRead(ctx context.Context, session *workerSession, iteration uint64) (operationKind, error) {
 	branchID := branchID(iteration, w.scale)
 	startID := int64(branchID)
 	endID := startID + int64(w.scale.Branches*9)
@@ -86,7 +97,7 @@ ORDER BY id`,
 		endID,
 	)
 	if err != nil {
-		return fmt.Errorf("range read: %w", err)
+		return operationKindRangeRead, fmt.Errorf("range read: %w", err)
 	}
 	defer rows.Close()
 
@@ -96,13 +107,13 @@ ORDER BY id`,
 			balance int64
 		)
 		if scanErr := rows.Scan(&id, &balance); scanErr != nil {
-			return fmt.Errorf("range read: %w", scanErr)
+			return operationKindRangeRead, fmt.Errorf("range read: %w", scanErr)
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("range read: %w", err)
+		return operationKindRangeRead, fmt.Errorf("range read: %w", err)
 	}
-	return nil
+	return operationKindRangeRead, nil
 }
 
 type writeWorkload struct {
@@ -110,7 +121,7 @@ type writeWorkload struct {
 	counter atomic.Uint64
 }
 
-func (w *writeWorkload) RunOnce(ctx context.Context, session *workerSession) error {
+func (w *writeWorkload) RunOnce(ctx context.Context, session *workerSession) (operationKind, error) {
 	iteration := w.counter.Add(1)
 	if iteration%2 == 1 {
 		return w.runInsert(ctx, session, iteration)
@@ -118,7 +129,7 @@ func (w *writeWorkload) RunOnce(ctx context.Context, session *workerSession) err
 	return w.runUpdate(ctx, session, iteration)
 }
 
-func (w *writeWorkload) runInsert(ctx context.Context, session *workerSession, iteration uint64) error {
+func (w *writeWorkload) runInsert(ctx context.Context, session *workerSession, iteration uint64) (operationKind, error) {
 	account := accountID(iteration, w.scale)
 	branch := branchID(iteration, w.scale)
 	teller := tellerID(iteration, w.scale, branch)
@@ -134,13 +145,13 @@ VALUES ($1, $2, $3, $4, $5, $6)`,
 		fmt.Sprintf("history-%d", iteration),
 		session.clock.Now().UTC(),
 	); err != nil {
-		return fmt.Errorf("insert history: %w", err)
+		return operationKindHistoryInsert, fmt.Errorf("insert history: %w", err)
 	}
 
-	return nil
+	return operationKindHistoryInsert, nil
 }
 
-func (w *writeWorkload) runUpdate(ctx context.Context, session *workerSession, iteration uint64) error {
+func (w *writeWorkload) runUpdate(ctx context.Context, session *workerSession, iteration uint64) (operationKind, error) {
 	if _, err := session.db.ExecContext(
 		ctx,
 		`UPDATE pg_gobench.accounts
@@ -149,10 +160,10 @@ WHERE id = $2`,
 		amount(iteration),
 		accountID(iteration, w.scale),
 	); err != nil {
-		return fmt.Errorf("update account: %w", err)
+		return operationKindAccountUpdate, fmt.Errorf("update account: %w", err)
 	}
 
-	return nil
+	return operationKindAccountUpdate, nil
 }
 
 type mixedWorkload struct {
@@ -162,7 +173,7 @@ type mixedWorkload struct {
 	counter     atomic.Uint64
 }
 
-func (w *mixedWorkload) RunOnce(ctx context.Context, session *workerSession) error {
+func (w *mixedWorkload) RunOnce(ctx context.Context, session *workerSession) (operationKind, error) {
 	iteration := w.counter.Add(1)
 	if int(iteration%100) < w.readPercent {
 		return w.read.RunOnce(ctx, session)
@@ -176,25 +187,25 @@ type transactionWorkload struct {
 	counter atomic.Uint64
 }
 
-func (w *transactionWorkload) RunOnce(ctx context.Context, session *workerSession) error {
+func (w *transactionWorkload) RunOnce(ctx context.Context, session *workerSession) (operationKind, error) {
 	iteration := w.counter.Add(1)
 	tx, err := session.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
+		return operationKindTransaction, fmt.Errorf("begin transaction: %w", err)
 	}
 
 	if err := w.runTransaction(ctx, tx, session, iteration); err != nil {
 		rollbackErr := tx.Rollback()
 		if rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
-			return errors.Join(fmt.Errorf("transaction workload: %w", err), fmt.Errorf("rollback transaction: %w", rollbackErr))
+			return operationKindTransaction, errors.Join(fmt.Errorf("transaction workload: %w", err), fmt.Errorf("rollback transaction: %w", rollbackErr))
 		}
-		return fmt.Errorf("transaction workload: %w", err)
+		return operationKindTransaction, fmt.Errorf("transaction workload: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
+		return operationKindTransaction, fmt.Errorf("commit transaction: %w", err)
 	}
-	return nil
+	return operationKindTransaction, nil
 }
 
 func (w *transactionWorkload) runTransaction(ctx context.Context, tx *sql.Tx, session *workerSession, iteration uint64) error {

@@ -24,7 +24,7 @@ type pacingTicker interface {
 }
 
 type workloadPlan interface {
-	RunOnce(context.Context, *workerSession) error
+	RunOnce(context.Context, *workerSession) (operationKind, error)
 }
 
 type pacingGate interface {

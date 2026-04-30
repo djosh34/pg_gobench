@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"pg_gobench/internal/benchmark"
+	"pg_gobench/internal/benchmarkrun"
 )
 
 type workerSession struct {
@@ -24,6 +25,7 @@ type activeRun struct {
 	plan  workloadPlan
 	pace  pacingGate
 	clock clock
+	stats *runStats
 
 	stopCtx    context.Context
 	stopCancel context.CancelFunc
@@ -53,6 +55,7 @@ func newActiveRun(
 		plan:       plan,
 		pace:       pace,
 		clock:      clock,
+		stats:      newRunStats(clock.Now(), time.Duration(options.WarmupSeconds)*time.Second, options.Clients),
 		stopCtx:    stopCtx,
 		stopCancel: stopCancel,
 		done:       make(chan struct{}),
@@ -96,6 +99,10 @@ func (r *activeRun) Wait() error {
 	return r.finalErr
 }
 
+func (r *activeRun) Snapshot() benchmarkrun.Stats {
+	return r.stats.snapshot(r.clock.Now())
+}
+
 func (r *activeRun) watchParent(parent context.Context) {
 	select {
 	case <-r.done:
@@ -125,11 +132,14 @@ func (r *activeRun) finish(err error) {
 		r.mu.Lock()
 		r.finalErr = err
 		r.mu.Unlock()
+		r.stats.finish(r.clock.Now(), err)
 		r.stopCancel()
 	})
 }
 
 func (r *activeRun) resizeWorkers(target int) {
+	r.stats.setConfiguredClients(target)
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -163,6 +173,7 @@ func (r *activeRun) startWorkerLocked() {
 	ctx, cancel := context.WithCancel(r.stopCtx)
 	r.workers[workerID] = cancel
 	r.wg.Add(1)
+	r.stats.workerStarted()
 
 	go func() {
 		defer r.wg.Done()
@@ -184,7 +195,14 @@ func (r *activeRun) startWorkerLocked() {
 				return
 			}
 
-			if err := r.plan.RunOnce(ctx, session); err != nil {
+			startedAt := r.clock.Now()
+			kind, err := r.plan.RunOnce(ctx, session)
+			finishedAt := r.clock.Now()
+			if err != nil && ctx.Err() != nil {
+				return
+			}
+			r.stats.record(kind, finishedAt.Sub(startedAt), finishedAt, err)
+			if err != nil {
 				if ctx.Err() != nil {
 					return
 				}
@@ -199,6 +217,7 @@ func (r *activeRun) workerStopped(workerID int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.workers, workerID)
+	r.stats.workerStopped()
 }
 
 type realPacingGate struct {

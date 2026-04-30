@@ -17,6 +17,7 @@ type Benchmark interface {
 	Alter(benchmark.AlterOptions) (benchmarkrun.State, error)
 	Stop() (benchmarkrun.State, error)
 	State() benchmarkrun.State
+	Results() benchmarkrun.Results
 }
 
 type Dependencies struct {
@@ -113,7 +114,7 @@ func (h handler) handleBenchmarkResults(w http.ResponseWriter, r *http.Request) 
 		}
 		return
 	}
-	if err := writeJSON(w, http.StatusOK, h.benchmark.State()); err != nil {
+	if err := writeJSON(w, http.StatusOK, h.benchmark.Results()); err != nil {
 		log.Printf("write /benchmark/results response: %v", err)
 	}
 }

@@ -1,4 +1,4 @@
-## Task: 01 Aggregate Benchmark Stats In Memory <status>not_started</status> <passes>false</passes>
+## Task: 01 Aggregate Benchmark Stats In Memory <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-03-core-benchmark/task-02-core-read-write-transaction-workloads.md</blocked_by>
 
@@ -13,14 +13,16 @@ Stats are in memory only. Do not add persistence. Use a design that avoids unbou
 </description>
 
 <acceptance_criteria>
-- [ ] TDD red/green coverage exists for p95 and p99 latency calculation.
-- [ ] TDD red/green coverage exists for TPS and elapsed-time calculation.
-- [ ] TDD red/green coverage exists for success/failure operation counts and active/configured clients.
-- [ ] TDD red/green coverage exists proving every workload/profile reports the same top-level stats shape.
-- [ ] Stats aggregation does not grow memory without bound for long runs.
-- [ ] Error text is compactly included in JSON state/results when present.
-- [ ] `make check` — passes cleanly
-- [ ] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
-- [ ] `make lint` — passes cleanly
+- [x] TDD red/green coverage exists for p95 and p99 latency calculation.
+- [x] TDD red/green coverage exists for TPS and elapsed-time calculation.
+- [x] TDD red/green coverage exists for success/failure operation counts and active/configured clients.
+- [x] TDD red/green coverage exists proving every workload/profile reports the same top-level stats shape.
+- [x] Stats aggregation does not grow memory without bound for long runs.
+- [x] Error text is compactly included in JSON state/results when present.
+- [x] `make check` — passes cleanly
+- [x] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
+- [x] `make lint` — passes cleanly
 - [ ] If this task impacts ultra-long tests (or their selection): `make test-long` — passes cleanly (ultra-long-only)
 </acceptance_criteria>
+
+<plan>.ralph/tasks/story-04-observability/task-01-stats-aggregation_plans/2026-04-30-stats-aggregation-plan.md</plan>

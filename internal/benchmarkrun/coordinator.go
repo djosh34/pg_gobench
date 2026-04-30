@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,7 @@ type Runner interface {
 
 type Run interface {
 	Alter(options benchmark.AlterOptions) error
+	Snapshot() Stats
 	Wait() error
 }
 
@@ -45,6 +47,7 @@ type Coordinator struct {
 	runner Runner
 	now    func() time.Time
 	state  State
+	stats  Stats
 	run    Run
 	cancel context.CancelFunc
 	runID  uint64
@@ -60,6 +63,7 @@ func New(runner Runner, opts ...Option) *Coordinator {
 		state: State{
 			Status: StatusIdle,
 		},
+		stats: zeroStats(),
 	}
 
 	for _, opt := range opts {
@@ -97,6 +101,7 @@ func (c *Coordinator) Start(ctx context.Context, options benchmark.StartOptions)
 		Status:  StatusStarting,
 		Options: cloneStartOptions(options),
 	}
+	c.stats = zeroStats()
 	c.mu.Unlock()
 
 	if c.runner == nil {
@@ -178,6 +183,18 @@ func (c *Coordinator) State() State {
 	return cloneState(c.state)
 }
 
+func (c *Coordinator) Results() Results {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	stats := c.stats
+	if c.run != nil {
+		stats = c.run.Snapshot()
+	}
+
+	return stateToResults(c.state, stats)
+}
+
 func cloneState(state State) State {
 	cloned := State{
 		Status:  state.Status,
@@ -209,6 +226,7 @@ func (c *Coordinator) finishStartFailure(runID uint64, options benchmark.StartOp
 		c.state.Error = ""
 		c.state.Options = cloneStartOptions(options)
 		c.state.StoppedAt = timePtr(stoppedAt)
+		c.stats = zeroStats()
 		return cloneState(c.state), err
 	}
 
@@ -216,8 +234,9 @@ func (c *Coordinator) finishStartFailure(runID uint64, options benchmark.StartOp
 		Status:    StatusFailed,
 		Options:   cloneStartOptions(options),
 		StoppedAt: timePtr(stoppedAt),
-		Error:     err.Error(),
+		Error:     compactErrorText(err.Error()),
 	}
+	c.stats = zeroStats()
 
 	return cloneState(c.state), err
 }
@@ -232,6 +251,7 @@ func (c *Coordinator) waitForRun(runID uint64, run Run) {
 		return
 	}
 
+	c.stats = run.Snapshot()
 	c.run = nil
 	c.cancel = nil
 	stoppedAt := c.now()
@@ -246,11 +266,19 @@ func (c *Coordinator) waitForRun(runID uint64, run Run) {
 		c.state.Error = ""
 	case errors.Is(err, context.Canceled):
 		c.state.Status = StatusFailed
-		c.state.Error = err.Error()
+		c.state.Error = compactErrorText(err.Error())
 	default:
 		c.state.Status = StatusFailed
-		c.state.Error = err.Error()
+		c.state.Error = compactErrorText(err.Error())
 	}
+}
+
+func compactErrorText(message string) string {
+	compact := strings.Join(strings.Fields(message), " ")
+	if len(compact) <= 160 {
+		return compact
+	}
+	return compact[:157] + "..."
 }
 
 func cloneStartOptions(options benchmark.StartOptions) benchmark.StartOptions {

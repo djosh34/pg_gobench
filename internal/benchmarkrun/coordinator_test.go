@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -350,6 +351,103 @@ func TestCoordinatorMarksStartFailureAsFailedAndExposesSetupError(t *testing.T) 
 	}
 }
 
+func TestCoordinatorResultsExposeLiveSnapshotAndRetainFinishedStats(t *testing.T) {
+	run := &fakeRun{
+		waitResult: make(chan error, 1),
+		snapshot: benchmarkrun.Stats{
+			TotalOperations:      7,
+			SuccessfulOperations: 6,
+			FailedOperations:     1,
+			ConfiguredClients:    4,
+			OperationRates: benchmarkrun.OperationRates{
+				PointRead: 3.5,
+			},
+			LatestError: "worker failed compactly",
+		},
+	}
+	coordinator := benchmarkrun.New(&fakeRunner{run: run})
+
+	if _, err := coordinator.Start(context.Background(), benchmark.StartOptions{
+		Scale:           10,
+		Clients:         4,
+		DurationSeconds: 60,
+		WarmupSeconds:   10,
+		Profile:         benchmark.ProfileMixed,
+	}); err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	live := coordinator.Results()
+	if live.Stats.TotalOperations != 7 {
+		t.Fatalf("live TotalOperations = %d, want %d", live.Stats.TotalOperations, 7)
+	}
+	if live.Stats.OperationRates.PointRead != 3.5 {
+		t.Fatalf("live PointRead rate = %v, want %v", live.Stats.OperationRates.PointRead, 3.5)
+	}
+
+	run.waitResult <- nil
+	waitForState(t, coordinator, benchmarkrun.StatusStopped)
+
+	finished := coordinator.Results()
+	if finished.Stats.TotalOperations != 7 {
+		t.Fatalf("finished TotalOperations = %d, want %d", finished.Stats.TotalOperations, 7)
+	}
+	if finished.Stats.LatestError != "worker failed compactly" {
+		t.Fatalf("finished LatestError = %q, want snapshot value", finished.Stats.LatestError)
+	}
+}
+
+func TestResultsJSONShapeIsStableAcrossProfiles(t *testing.T) {
+	profiles := []benchmark.Profile{
+		benchmark.ProfileRead,
+		benchmark.ProfileWrite,
+		benchmark.ProfileMixed,
+		benchmark.ProfileTransaction,
+	}
+
+	var wantStatsKeys []string
+	var wantOperationRateKeys []string
+
+	for _, profile := range profiles {
+		payload := benchmarkrun.Results{
+			Status: benchmarkrun.StatusRunning,
+			Options: benchmark.StartOptions{
+				Scale:           10,
+				Clients:         2,
+				DurationSeconds: 60,
+				WarmupSeconds:   10,
+				Profile:         profile,
+			},
+			Stats: benchmarkrun.Stats{},
+		}
+
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("Marshal results for profile %q: %v", profile, err)
+		}
+
+		var decoded map[string]any
+		if err := json.Unmarshal(encoded, &decoded); err != nil {
+			t.Fatalf("Unmarshal results for profile %q: %v", profile, err)
+		}
+
+		statsKeys := sortedKeys(decoded["stats"].(map[string]any))
+		operationRateKeys := sortedKeys(decoded["stats"].(map[string]any)["operation_rates"].(map[string]any))
+
+		if wantStatsKeys == nil {
+			wantStatsKeys = statsKeys
+			wantOperationRateKeys = operationRateKeys
+			continue
+		}
+		if !reflect.DeepEqual(statsKeys, wantStatsKeys) {
+			t.Fatalf("stats keys for profile %q = %v, want %v", profile, statsKeys, wantStatsKeys)
+		}
+		if !reflect.DeepEqual(operationRateKeys, wantOperationRateKeys) {
+			t.Fatalf("operation_rates keys for profile %q = %v, want %v", profile, operationRateKeys, wantOperationRateKeys)
+		}
+	}
+}
+
 type fakeRunner struct {
 	run            benchmarkrun.Run
 	startErr       error
@@ -371,6 +469,7 @@ type fakeRun struct {
 	alterErr       error
 	alterCalls     int
 	alteredOptions benchmark.AlterOptions
+	snapshot       benchmarkrun.Stats
 }
 
 func (f *fakeRun) Alter(options benchmark.AlterOptions) error {
@@ -384,6 +483,10 @@ func (f *fakeRun) Wait() error {
 		return f.waitFunc()
 	}
 	return <-f.waitResult
+}
+
+func (f *fakeRun) Snapshot() benchmarkrun.Stats {
+	return f.snapshot
 }
 
 func intPtr(value int) *int {
@@ -417,4 +520,13 @@ func waitForState(t *testing.T, coordinator *benchmarkrun.Coordinator, want benc
 
 	t.Fatalf("state never reached %q; last state = %#v", want, coordinator.State())
 	return benchmarkrun.State{}
+}
+
+func sortedKeys(values map[string]any) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

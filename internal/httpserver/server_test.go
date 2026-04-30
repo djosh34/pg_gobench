@@ -206,7 +206,7 @@ func TestNewStopsBenchmarkAndReturnsState(t *testing.T) {
 
 func TestNewServesBenchmarkResultsAsJSONSnapshot(t *testing.T) {
 	controller := &fakeControl{
-		state: runningState(),
+		results: runningResults(),
 	}
 	server := newTestServer(controller, func(context.Context) error { return nil })
 
@@ -216,11 +216,17 @@ func TestNewServesBenchmarkResultsAsJSONSnapshot(t *testing.T) {
 		t.Fatalf("StatusCode = %d, want %d", response.StatusCode, http.StatusOK)
 	}
 
-	var state benchmarkrun.State
-	decodeResponseJSON(t, response, &state)
+	var results benchmarkrun.Results
+	decodeResponseJSON(t, response, &results)
 
-	if state.Status != benchmarkrun.StatusRunning {
-		t.Fatalf("Status = %q, want %q", state.Status, benchmarkrun.StatusRunning)
+	if results.Status != benchmarkrun.StatusRunning {
+		t.Fatalf("Status = %q, want %q", results.Status, benchmarkrun.StatusRunning)
+	}
+	if results.Stats.ConfiguredClients != 4 {
+		t.Fatalf("Stats.ConfiguredClients = %d, want %d", results.Stats.ConfiguredClients, 4)
+	}
+	if results.Stats.OperationRates.PointRead != 12.5 {
+		t.Fatalf("Stats.OperationRates.PointRead = %v, want %v", results.Stats.OperationRates.PointRead, 12.5)
 	}
 }
 
@@ -392,8 +398,24 @@ func runningState() benchmarkrun.State {
 	}
 }
 
+func runningResults() benchmarkrun.Results {
+	state := runningState()
+	return benchmarkrun.Results{
+		Status:    state.Status,
+		Options:   state.Options,
+		StartedAt: state.StartedAt,
+		Stats: benchmarkrun.Stats{
+			ConfiguredClients: 4,
+			OperationRates: benchmarkrun.OperationRates{
+				PointRead: 12.5,
+			},
+		},
+	}
+}
+
 type fakeControl struct {
 	state       benchmarkrun.State
+	results     benchmarkrun.Results
 	startCalled bool
 	alterCalled bool
 	stopCalled  bool
@@ -416,6 +438,10 @@ func (f *fakeControl) Alter(options benchmark.AlterOptions) (benchmarkrun.State,
 		return benchmarkrun.State{}, nil
 	}
 	return f.alterFn(options)
+}
+
+func (f *fakeControl) Results() benchmarkrun.Results {
+	return f.results
 }
 
 func (f *fakeControl) Stop() (benchmarkrun.State, error) {
