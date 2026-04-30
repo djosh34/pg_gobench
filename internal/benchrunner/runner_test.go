@@ -17,33 +17,126 @@ import (
 	"pg_gobench/internal/benchmarkrun"
 )
 
-func TestRunnerStartRejectsUnsupportedProfiles(t *testing.T) {
-	for _, profile := range []benchmark.Profile{
-		benchmark.ProfileJoin,
-		benchmark.ProfileLock,
-	} {
-		t.Run(string(profile), func(t *testing.T) {
-			db, _ := openDriverDB(t, testDriverConfig{})
-			t.Cleanup(func() {
-				if err := db.Close(); err != nil {
-					t.Fatalf("Close db: %v", err)
-				}
-			})
+func TestRunnerJoinProfileExecutesJoinAndAggregationQueriesThroughDatabaseSQL(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-			_, err := New(db).Start(context.Background(), benchmark.StartOptions{
-				Scale:           1,
-				Clients:         1,
-				DurationSeconds: 60,
-				WarmupSeconds:   10,
-				Profile:         profile,
-			})
-			if err == nil {
-				t.Fatal("Start returned nil error for unsupported profile")
+	var (
+		db       *sql.DB
+		recorder *callRecorder
+	)
+	db, recorder = openDriverDB(t, testDriverConfig{
+		onQuery: func(call recordedCall) driver.Rows {
+			switch {
+			case strings.Contains(call.query, "JOIN pg_gobench.branches"):
+				recorder.markObserved("join")
+				return rowsWithColumns([]string{"account_id", "account_name", "branch_name", "teller_name", "balance"}, [][]driver.Value{{int64(1), "account-1", "branch-1", "teller-1", int64(0)}})
+			case strings.Contains(call.query, "GROUP BY a.branch_id"):
+				recorder.markObserved("aggregation")
+				cancel()
+				return rowsWithColumns([]string{"branch_id", "account_count", "total_balance"}, [][]driver.Value{{int64(1), int64(1), int64(0)}})
+			default:
+				return rowsWithColumns([]string{"ignored"}, nil)
 			}
-			if !strings.Contains(err.Error(), fmt.Sprintf("profile %q is not implemented", profile)) {
-				t.Fatalf("Start error = %q, want unsupported profile message", err)
+		},
+	})
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("Close db: %v", err)
+		}
+	})
+
+	run, err := New(db).Start(ctx, benchmark.StartOptions{
+		Scale:           1,
+		Clients:         1,
+		DurationSeconds: 600,
+		WarmupSeconds:   10,
+		Profile:         benchmark.ProfileJoin,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	waitErr := run.Wait()
+	if !errors.Is(waitErr, context.Canceled) {
+		t.Fatalf("Wait error = %v, want %v", waitErr, context.Canceled)
+	}
+
+	if !recorder.saw("join") {
+		t.Fatalf("observed calls = %#v, want join workload query", recorder.snapshot())
+	}
+	if !recorder.saw("aggregation") {
+		t.Fatalf("observed calls = %#v, want aggregation workload query", recorder.snapshot())
+	}
+}
+
+func TestRunnerLockProfileExecutesLockAndHotUpdateQueriesThroughDatabaseSQL(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var (
+		db       *sql.DB
+		recorder *callRecorder
+	)
+	db, recorder = openDriverDB(t, testDriverConfig{
+		onExec: func(call recordedCall) error {
+			switch {
+			case strings.Contains(call.query, "SET LOCAL lock_timeout"):
+				recorder.markObserved("set-lock-timeout")
+			case strings.Contains(call.query, "SET balance = balance + $1"):
+				recorder.markObserved("hot-update")
 			}
-		})
+			return nil
+		},
+		onCommit: func() error {
+			if recorder.saw("hot-update") {
+				cancel()
+			}
+			return nil
+		},
+		onQuery: func(call recordedCall) driver.Rows {
+			if strings.Contains(call.query, "FOR UPDATE NOWAIT") {
+				recorder.markObserved("lock-contention")
+			}
+			return rowsWithColumns([]string{"id"}, [][]driver.Value{{int64(1)}})
+		},
+	})
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("Close db: %v", err)
+		}
+	})
+
+	run, err := New(db).Start(ctx, benchmark.StartOptions{
+		Scale:           1,
+		Clients:         2,
+		DurationSeconds: 600,
+		WarmupSeconds:   10,
+		Profile:         benchmark.ProfileLock,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	waitErr := run.Wait()
+	if !errors.Is(waitErr, context.Canceled) {
+		t.Fatalf("Wait error = %v, want %v", waitErr, context.Canceled)
+	}
+
+	if !recorder.saw("set-lock-timeout") {
+		t.Fatalf("observed calls = %#v, want lock-timeout setup", recorder.snapshot())
+	}
+	if !recorder.saw("lock-contention") {
+		t.Fatalf("observed calls = %#v, want explicit lock-contention query", recorder.snapshot())
+	}
+	if !recorder.saw("hot-update") {
+		t.Fatalf("observed calls = %#v, want hot-update query", recorder.snapshot())
+	}
+	if !containsCall(recorder.snapshot(), "begin", true) {
+		t.Fatalf("observed calls = %#v, want transaction begin", recorder.snapshot())
+	}
+	if !containsCall(recorder.snapshot(), "commit", true) {
+		t.Fatalf("observed calls = %#v, want transaction commit", recorder.snapshot())
 	}
 }
 
@@ -361,6 +454,63 @@ func TestCoordinatorMarksBenchrunnerWorkerSQLFailureAsFailed(t *testing.T) {
 	}
 	if !strings.Contains(failedState.Error, "update account: synthetic workload failure") {
 		t.Fatalf("failed state error = %q, want workload failure context", failedState.Error)
+	}
+}
+
+func TestCoordinatorCountsAndSurfacesLockContentionFailures(t *testing.T) {
+	db, _ := openDriverDB(t, testDriverConfig{
+		onExec: func(call recordedCall) error {
+			if call.inTx && strings.Contains(call.query, "SET LOCAL lock_timeout") {
+				return fmt.Errorf("could not obtain lock on row")
+			}
+			return nil
+		},
+	})
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("Close db: %v", err)
+		}
+	})
+
+	coordinator := benchmarkrun.New(New(db))
+	state, err := coordinator.Start(context.Background(), benchmark.StartOptions{
+		Scale:           1,
+		Clients:         1,
+		DurationSeconds: 600,
+		WarmupSeconds:   0,
+		Profile:         benchmark.ProfileLock,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if state.Status != benchmarkrun.StatusRunning {
+		t.Fatalf("Start state = %q, want %q", state.Status, benchmarkrun.StatusRunning)
+	}
+
+	waitForCondition(t, 2*time.Second, func() bool {
+		return coordinator.State().Status == benchmarkrun.StatusFailed
+	})
+
+	failedState := coordinator.State()
+	if failedState.Status != benchmarkrun.StatusFailed {
+		t.Fatalf("final state = %#v, want failed", failedState)
+	}
+	if !strings.Contains(failedState.Error, "lock contention: could not obtain lock on row") {
+		t.Fatalf("failed state error = %q, want lock contention context", failedState.Error)
+	}
+
+	results := coordinator.Results()
+	if results.Stats.TotalOperations != 1 {
+		t.Fatalf("TotalOperations = %d, want %d", results.Stats.TotalOperations, 1)
+	}
+	if results.Stats.SuccessfulOperations != 0 {
+		t.Fatalf("SuccessfulOperations = %d, want %d", results.Stats.SuccessfulOperations, 0)
+	}
+	if results.Stats.FailedOperations != 1 {
+		t.Fatalf("FailedOperations = %d, want %d", results.Stats.FailedOperations, 1)
+	}
+	if results.Stats.LatestError != "lock contention: could not obtain lock on row" {
+		t.Fatalf("LatestError = %q, want compact lock contention error", results.Stats.LatestError)
 	}
 }
 

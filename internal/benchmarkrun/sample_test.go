@@ -30,7 +30,11 @@ func TestSampleBuildsConsistentJSONAndPrometheusViews(t *testing.T) {
 		ActiveClients:        1,
 		ConfiguredClients:    2,
 		OperationCounts: benchmarkrun.OperationCounts{
-			PointRead: 2,
+			PointRead:      2,
+			Join:           4,
+			Aggregation:    6,
+			LockContention: 8,
+			HotUpdate:      10,
 		},
 		LatestError: "worker failed compactly",
 	}
@@ -41,6 +45,18 @@ func TestSampleBuildsConsistentJSONAndPrometheusViews(t *testing.T) {
 	}
 	if stats.OperationRates.PointRead != 0.2 {
 		t.Fatalf("stats point-read rate = %v, want %v", stats.OperationRates.PointRead, 0.2)
+	}
+	if stats.OperationRates.Join != 0.4 {
+		t.Fatalf("stats join rate = %v, want %v", stats.OperationRates.Join, 0.4)
+	}
+	if stats.OperationRates.Aggregation != 0.6 {
+		t.Fatalf("stats aggregation rate = %v, want %v", stats.OperationRates.Aggregation, 0.6)
+	}
+	if stats.OperationRates.LockContention != 0.8 {
+		t.Fatalf("stats lock-contention rate = %v, want %v", stats.OperationRates.LockContention, 0.8)
+	}
+	if stats.OperationRates.HotUpdate != 1 {
+		t.Fatalf("stats hot-update rate = %v, want %v", stats.OperationRates.HotUpdate, 1.0)
 	}
 	if stats.LatestError != "worker failed compactly" {
 		t.Fatalf("stats latest error = %q, want compact sample error", stats.LatestError)

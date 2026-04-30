@@ -422,10 +422,33 @@ func TestResultsJSONShapeIsStableAcrossProfiles(t *testing.T) {
 		benchmark.ProfileWrite,
 		benchmark.ProfileMixed,
 		benchmark.ProfileTransaction,
+		benchmark.ProfileJoin,
+		benchmark.ProfileLock,
 	}
 
-	var wantStatsKeys []string
-	var wantOperationRateKeys []string
+	wantStatsKeys := []string{
+		"active_clients",
+		"configured_clients",
+		"elapsed_seconds",
+		"failed_operations",
+		"latency",
+		"latest_error",
+		"operation_rates",
+		"successful_operations",
+		"total_operations",
+		"tps",
+	}
+	wantOperationRateKeys := []string{
+		"account_update",
+		"aggregation",
+		"history_insert",
+		"hot_update",
+		"join",
+		"lock_contention",
+		"point_read",
+		"range_read",
+		"transaction",
+	}
 
 	for _, profile := range profiles {
 		payload := benchmarkrun.Results{
@@ -453,11 +476,6 @@ func TestResultsJSONShapeIsStableAcrossProfiles(t *testing.T) {
 		statsKeys := sortedKeys(decoded["stats"].(map[string]any))
 		operationRateKeys := sortedKeys(decoded["stats"].(map[string]any)["operation_rates"].(map[string]any))
 
-		if wantStatsKeys == nil {
-			wantStatsKeys = statsKeys
-			wantOperationRateKeys = operationRateKeys
-			continue
-		}
 		if !reflect.DeepEqual(statsKeys, wantStatsKeys) {
 			t.Fatalf("stats keys for profile %q = %v, want %v", profile, statsKeys, wantStatsKeys)
 		}

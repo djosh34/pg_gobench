@@ -1,18 +1,6 @@
 # Current Tasks Summary
 
-Generated: Thu Apr 30 03:34:18 AM CEST 2026
-
-# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-06-advanced-workloads/task-01-join-lock-contention-workloads.md`
-
-```
-## Task: 01 Add Join Lock And Contention Workloads <status>not_started</status> <passes>false</passes>
-
-<blocked_by>.ralph/tasks/story-05-delivery/task-02-docker-compose-postgres-example.md</blocked_by>
-
-<description>
-```
-
-==============
+Generated: Thu Apr 30 03:48:02 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-07-k8s/task-01-k8s-simple-deployment-configmap.md`
 

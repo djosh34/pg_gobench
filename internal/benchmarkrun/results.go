@@ -25,7 +25,7 @@ type Stats struct {
 	ConfiguredClients    int            `json:"configured_clients"`
 	ElapsedSeconds       float64        `json:"elapsed_seconds"`
 	OperationRates       OperationRates `json:"operation_rates"`
-	LatestError          string         `json:"latest_error,omitempty"`
+	LatestError          string         `json:"latest_error"`
 }
 
 type LatencyStats struct {
@@ -39,11 +39,15 @@ type LatencyStats struct {
 }
 
 type OperationRates struct {
-	PointRead     float64 `json:"point_read"`
-	RangeRead     float64 `json:"range_read"`
-	HistoryInsert float64 `json:"history_insert"`
-	AccountUpdate float64 `json:"account_update"`
-	Transaction   float64 `json:"transaction"`
+	PointRead      float64 `json:"point_read"`
+	RangeRead      float64 `json:"range_read"`
+	HistoryInsert  float64 `json:"history_insert"`
+	AccountUpdate  float64 `json:"account_update"`
+	Transaction    float64 `json:"transaction"`
+	Join           float64 `json:"join"`
+	Aggregation    float64 `json:"aggregation"`
+	LockContention float64 `json:"lock_contention"`
+	HotUpdate      float64 `json:"hot_update"`
 }
 
 func stateToResults(state State, sample Sample) Results {

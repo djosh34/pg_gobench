@@ -26,11 +26,15 @@ type LatencySample struct {
 }
 
 type OperationCounts struct {
-	PointRead     uint64
-	RangeRead     uint64
-	HistoryInsert uint64
-	AccountUpdate uint64
-	Transaction   uint64
+	PointRead      uint64
+	RangeRead      uint64
+	HistoryInsert  uint64
+	AccountUpdate  uint64
+	Transaction    uint64
+	Join           uint64
+	Aggregation    uint64
+	LockContention uint64
+	HotUpdate      uint64
 }
 
 func (s Sample) Stats() Stats {
@@ -52,11 +56,15 @@ func (s Sample) Stats() Stats {
 		ConfiguredClients:    s.ConfiguredClients,
 		ElapsedSeconds:       s.ElapsedSeconds,
 		OperationRates: OperationRates{
-			PointRead:     ratePerSecond(s.OperationCounts.PointRead, s.ElapsedSeconds),
-			RangeRead:     ratePerSecond(s.OperationCounts.RangeRead, s.ElapsedSeconds),
-			HistoryInsert: ratePerSecond(s.OperationCounts.HistoryInsert, s.ElapsedSeconds),
-			AccountUpdate: ratePerSecond(s.OperationCounts.AccountUpdate, s.ElapsedSeconds),
-			Transaction:   ratePerSecond(s.OperationCounts.Transaction, s.ElapsedSeconds),
+			PointRead:      ratePerSecond(s.OperationCounts.PointRead, s.ElapsedSeconds),
+			RangeRead:      ratePerSecond(s.OperationCounts.RangeRead, s.ElapsedSeconds),
+			HistoryInsert:  ratePerSecond(s.OperationCounts.HistoryInsert, s.ElapsedSeconds),
+			AccountUpdate:  ratePerSecond(s.OperationCounts.AccountUpdate, s.ElapsedSeconds),
+			Transaction:    ratePerSecond(s.OperationCounts.Transaction, s.ElapsedSeconds),
+			Join:           ratePerSecond(s.OperationCounts.Join, s.ElapsedSeconds),
+			Aggregation:    ratePerSecond(s.OperationCounts.Aggregation, s.ElapsedSeconds),
+			LockContention: ratePerSecond(s.OperationCounts.LockContention, s.ElapsedSeconds),
+			HotUpdate:      ratePerSecond(s.OperationCounts.HotUpdate, s.ElapsedSeconds),
 		},
 		LatestError: s.LatestError,
 	}
