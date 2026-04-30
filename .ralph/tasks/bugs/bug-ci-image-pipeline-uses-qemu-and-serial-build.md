@@ -21,3 +21,5 @@ Verify the fixed workflow manually by inspecting the CI graph and checking an au
 - [ ] `make check` — passes cleanly.
 - [ ] `make lint` — passes cleanly.
 </acceptance_criteria>
+
+<plan>.ralph/tasks/bugs/bug-ci-image-pipeline-uses-qemu-and-serial-build_plans/2026-04-30-ci-image-pipeline-native-arm-plan.md</plan>

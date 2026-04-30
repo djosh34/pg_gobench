@@ -1,0 +1,1 @@
+.ralph/tasks/bugs/bug-ci-image-pipeline-uses-qemu-and-serial-build.md
