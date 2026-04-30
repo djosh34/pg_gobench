@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"pg_gobench/internal/benchmark"
 	"pg_gobench/internal/benchmarkrun"
@@ -39,6 +40,12 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
+type routeSpec struct {
+	path    string
+	method  string
+	handler http.HandlerFunc
+}
+
 func New(addr string, deps Dependencies) *http.Server {
 	h := handler{
 		benchmark: deps.Benchmark,
@@ -46,19 +53,48 @@ func New(addr string, deps Dependencies) *http.Server {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", h.handleHealthz)
-	mux.HandleFunc("/readyz", h.handleReadyz)
-	mux.HandleFunc("/benchmark", h.handleBenchmark)
-	mux.HandleFunc("/benchmark/results", h.handleBenchmarkResults)
-	mux.HandleFunc("/benchmark/start", h.handleBenchmarkStart)
-	mux.HandleFunc("/benchmark/alter", h.handleBenchmarkAlter)
-	mux.HandleFunc("/benchmark/stop", h.handleBenchmarkStop)
-	mux.HandleFunc("/metrics", h.handleMetrics)
+	routes := []routeSpec{
+		{path: "/healthz", method: http.MethodGet, handler: h.handleHealthz},
+		{path: "/readyz", method: http.MethodGet, handler: h.handleReadyz},
+		{path: "/benchmark", method: http.MethodGet, handler: h.handleBenchmark},
+		{path: "/benchmark/results", method: http.MethodGet, handler: h.handleBenchmarkResults},
+		{path: "/benchmark/start", method: http.MethodPost, handler: h.handleBenchmarkStart},
+		{path: "/benchmark/alter", method: http.MethodPost, handler: h.handleBenchmarkAlter},
+		{path: "/benchmark/stop", method: http.MethodPost, handler: h.handleBenchmarkStop},
+		{path: "/metrics", method: http.MethodGet, handler: h.handleMetrics},
+	}
+	for _, route := range routes {
+		mux.HandleFunc(route.path, route.handler)
+	}
 
 	return &http.Server{
 		Addr:    addr,
-		Handler: mux,
+		Handler: newBrowserCompatibleHandler(mux, routes),
 	}
+}
+
+func newBrowserCompatibleHandler(next http.Handler, routes []routeSpec) http.Handler {
+	allowedMethods := make(map[string]string, len(routes))
+	for _, route := range routes {
+		allowedMethods[route.path] = route.method
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method, ok := allowedMethods[r.URL.Path]
+		if !ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		setBrowserAccessHeaders(w, method)
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Allow", allowedMethodsList(method))
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (h handler) handleHealthz(w http.ResponseWriter, r *http.Request) {
@@ -259,4 +295,14 @@ func writeJSON(w http.ResponseWriter, status int, payload any) error {
 		return fmt.Errorf("encode JSON response: %w", err)
 	}
 	return nil
+}
+
+func setBrowserAccessHeaders(w http.ResponseWriter, method string) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Methods", allowedMethodsList(method))
+}
+
+func allowedMethodsList(method string) string {
+	return strings.Join([]string{method, http.MethodOptions}, ", ")
 }

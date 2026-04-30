@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pg_gobench Control Page</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4efe4;
+      --panel: #fffaf0;
+      --panel-strong: #f1e2c1;
+      --ink: #1f2a1f;
+      --muted: #596556;
+      --accent: #355f3b;
+      --accent-strong: #214227;
+      --warning: #8a5a10;
+      --error: #8c2f1b;
+      --border: #d0c09a;
+      --shadow: rgba(56, 44, 12, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(241, 226, 193, 0.9), transparent 38%),
+        linear-gradient(180deg, #fcf7ec 0%, var(--bg) 100%);
+      color: var(--ink);
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 24px 18px 40px;
+    }
+
+    h1,
+    h2 {
+      font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+      letter-spacing: 0.04em;
+      margin: 0 0 12px;
+    }
+
+    p,
+    label,
+    button,
+    input,
+    select {
+      font-size: 0.98rem;
+    }
+
+    .hero {
+      margin-bottom: 18px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--panel-strong), var(--panel));
+      box-shadow: 0 16px 40px var(--shadow);
+    }
+
+    .hero p,
+    .hint {
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    section {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255, 250, 240, 0.96);
+      padding: 18px;
+      box-shadow: 0 10px 24px var(--shadow);
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .checkbox-field {
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      padding-top: 28px;
+    }
+
+    label {
+      font-weight: 600;
+    }
+
+    input,
+    select,
+    button {
+      border: 1px solid #b89e6f;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fffdf8;
+      color: var(--ink);
+    }
+
+    input:disabled,
+    select:disabled {
+      background: #ece4d0;
+      color: #7a7568;
+      cursor: not-allowed;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 700;
+      background: var(--accent);
+      color: #fffaf0;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+
+    button:hover {
+      background: var(--accent-strong);
+      transform: translateY(-1px);
+    }
+
+    button.secondary {
+      background: #51674f;
+    }
+
+    button.warning {
+      background: var(--warning);
+    }
+
+    button.danger {
+      background: var(--error);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .status-bar {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #f8f1e0;
+      line-height: 1.5;
+      min-height: 52px;
+    }
+
+    .status-bar[data-state="success"] {
+      border-color: #5c8a57;
+      background: #eef8e8;
+    }
+
+    .status-bar[data-state="error"] {
+      border-color: #b16650;
+      background: #fcece7;
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid #223520;
+      background: #1d271c;
+      color: #e6f1db;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 180px;
+      font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .inline-note {
+      margin: 0 0 12px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 720px) {
+      main {
+        padding: 16px 12px 28px;
+      }
+
+      .checkbox-field {
+        padding-top: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <h1>pg_gobench standalone control page</h1>
+      <p>Open this file directly from disk, point it at a running API, and drive the benchmark through the existing JSON and Prometheus endpoints only.</p>
+    </header>
+
+    <div class="layout">
+      <section class="full-width">
+        <h2>API target</h2>
+        <div class="field-grid">
+          <div class="field" style="grid-column: 1 / -1;">
+            <label for="api-base-url">API base URL</label>
+            <input id="api-base-url" name="api-base-url" type="url" spellcheck="false" placeholder="http://127.0.0.1:8080">
+          </div>
+        </div>
+        <div class="button-row">
+          <button id="save-base-url" type="button">Save API URL</button>
+          <button id="load-health" class="secondary" type="button">Check health</button>
+          <button id="load-ready" class="secondary" type="button">Check readiness</button>
+          <button id="load-state" class="secondary" type="button">Load state</button>
+          <button id="load-results" class="secondary" type="button">Load results</button>
+          <button id="fetch-metrics" class="secondary" type="button">Fetch metrics</button>
+          <button id="open-metrics" class="warning" type="button">Open metrics</button>
+        </div>
+        <div id="request-status" class="status-bar" data-state="idle">No request sent yet.</div>
+      </section>
+
+      <section>
+        <h2>Start benchmark</h2>
+        <p id="profile-hint" class="inline-note">`mixed` uses `read_percent`. `transaction` uses `transaction_mix`. Other profiles ignore both fields.</p>
+        <form id="start-form">
+          <div class="field-grid">
+            <div class="field">
+              <label for="start-scale">scale</label>
+              <input id="start-scale" name="scale" type="number" min="1" step="1" value="10" required>
+            </div>
+            <div class="field">
+              <label for="start-clients">clients</label>
+              <input id="start-clients" name="clients" type="number" min="1" step="1" value="1" required>
+            </div>
+            <div class="field">
+              <label for="start-duration">duration_seconds</label>
+              <input id="start-duration" name="duration_seconds" type="number" min="1" step="1" value="60" required>
+            </div>
+            <div class="field">
+              <label for="start-warmup">warmup_seconds</label>
+              <input id="start-warmup" name="warmup_seconds" type="number" min="0" step="1" value="10" required>
+            </div>
+            <div class="field">
+              <label for="start-profile">profile</label>
+              <select id="start-profile" name="profile">
+                <option value="mixed" selected>mixed</option>
+                <option value="read">read</option>
+                <option value="write">write</option>
+                <option value="transaction">transaction</option>
+                <option value="join">join</option>
+                <option value="lock">lock</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="start-read-percent">read_percent</label>
+              <input id="start-read-percent" name="read_percent" type="number" min="0" max="100" step="1" value="80">
+            </div>
+            <div class="field">
+              <label for="start-transaction-mix">transaction_mix</label>
+              <select id="start-transaction-mix" name="transaction_mix">
+                <option value="balanced" selected>balanced</option>
+                <option value="read-heavy">read-heavy</option>
+                <option value="write-heavy">write-heavy</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="start-target-tps">target_tps</label>
+              <input id="start-target-tps" name="target_tps" type="number" min="1" step="1" placeholder="optional">
+            </div>
+            <label class="field checkbox-field" for="start-reset">
+              <input id="start-reset" name="reset" type="checkbox">
+              reset before run
+            </label>
+          </div>
+          <div class="button-row">
+            <button id="start-benchmark" type="submit">Start benchmark</button>
+          </div>
+        </form>
+      </section>
+
+      <section>
+        <h2>Alter or stop</h2>
+        <p class="inline-note">Only set fields you want to change. Empty fields are omitted from the alter request.</p>
+        <form id="alter-form">
+          <div class="field-grid">
+            <div class="field">
+              <label for="alter-clients">clients</label>
+              <input id="alter-clients" name="clients" type="number" min="1" step="1" placeholder="leave empty to keep current">
+            </div>
+            <div class="field">
+              <label for="alter-target-tps">target_tps</label>
+              <input id="alter-target-tps" name="target_tps" type="number" min="1" step="1" placeholder="leave empty to keep current">
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="alter-benchmark" type="submit">Alter benchmark</button>
+            <button id="stop-benchmark" class="danger" type="button">Stop benchmark</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="full-width">
+        <h2>JSON output</h2>
+        <pre id="json-output">{
+  "status": "ready"
+}</pre>
+      </section>
+
+      <section class="full-width">
+        <h2>Metrics output</h2>
+        <pre id="metrics-output"># fetch /metrics to render Prometheus text here</pre>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const storageKey = "pg_gobench_api_base_url";
+      const defaultBaseUrl = "http://127.0.0.1:8080";
+
+      const elements = {
+        apiBaseUrl: document.getElementById("api-base-url"),
+        requestStatus: document.getElementById("request-status"),
+        jsonOutput: document.getElementById("json-output"),
+        metricsOutput: document.getElementById("metrics-output"),
+        profileHint: document.getElementById("profile-hint"),
+        startForm: document.getElementById("start-form"),
+        alterForm: document.getElementById("alter-form"),
+        startProfile: document.getElementById("start-profile"),
+        startScale: document.getElementById("start-scale"),
+        startClients: document.getElementById("start-clients"),
+        startDuration: document.getElementById("start-duration"),
+        startWarmup: document.getElementById("start-warmup"),
+        startReset: document.getElementById("start-reset"),
+        startReadPercent: document.getElementById("start-read-percent"),
+        startTransactionMix: document.getElementById("start-transaction-mix"),
+        startTargetTPS: document.getElementById("start-target-tps"),
+        alterClients: document.getElementById("alter-clients"),
+        alterTargetTPS: document.getElementById("alter-target-tps")
+      };
+
+      function initializeBaseUrl() {
+        const saved = window.localStorage.getItem(storageKey);
+        elements.apiBaseUrl.value = saved || defaultBaseUrl;
+      }
+
+      function normalizeBaseUrl(rawValue) {
+        const trimmed = rawValue.trim();
+        if (trimmed === "") {
+          throw new Error("API base URL is required");
+        }
+        return trimmed.replace(/\/+$/, "");
+      }
+
+      function saveBaseUrl() {
+        const baseUrl = normalizeBaseUrl(elements.apiBaseUrl.value);
+        window.localStorage.setItem(storageKey, baseUrl);
+        elements.apiBaseUrl.value = baseUrl;
+        setStatus("Saved API base URL: " + baseUrl, "success");
+        return baseUrl;
+      }
+
+      function parseRequiredInteger(rawValue, fieldName) {
+        const parsed = Number.parseInt(rawValue, 10);
+        if (!Number.isInteger(parsed)) {
+          throw new Error(fieldName + " must be an integer");
+        }
+        return parsed;
+      }
+
+      function parseOptionalInteger(rawValue, fieldName) {
+        const trimmed = rawValue.trim();
+        if (trimmed === "") {
+          return null;
+        }
+        return parseRequiredInteger(trimmed, fieldName);
+      }
+
+      function buildStartPayload() {
+        const profile = elements.startProfile.value;
+        const scale = parseRequiredInteger(elements.startScale.value, "scale");
+        const clients = parseRequiredInteger(elements.startClients.value, "clients");
+        const durationSeconds = parseRequiredInteger(elements.startDuration.value, "duration_seconds");
+        const warmupSeconds = parseRequiredInteger(elements.startWarmup.value, "warmup_seconds");
+
+        if (warmupSeconds >= durationSeconds) {
+          throw new Error("warmup_seconds must be less than duration_seconds");
+        }
+        if (profile === "lock" && clients < 2) {
+          throw new Error("clients must be at least 2 for profile lock");
+        }
+
+        const payload = {
+          scale: scale,
+          clients: clients,
+          duration_seconds: durationSeconds,
+          warmup_seconds: warmupSeconds,
+          reset: elements.startReset.checked,
+          profile: profile
+        };
+
+        if (profile === "mixed") {
+          payload.read_percent = parseRequiredInteger(elements.startReadPercent.value, "read_percent");
+        }
+        if (profile === "transaction") {
+          payload.transaction_mix = elements.startTransactionMix.value;
+        }
+
+        const targetTPS = parseOptionalInteger(elements.startTargetTPS.value, "target_tps");
+        if (targetTPS !== null) {
+          payload.target_tps = targetTPS;
+        }
+
+        return payload;
+      }
+
+      function buildAlterPayload() {
+        const payload = {};
+        const clients = parseOptionalInteger(elements.alterClients.value, "clients");
+        const targetTPS = parseOptionalInteger(elements.alterTargetTPS.value, "target_tps");
+
+        if (clients !== null) {
+          payload.clients = clients;
+        }
+        if (targetTPS !== null) {
+          payload.target_tps = targetTPS;
+        }
+        if (Object.keys(payload).length === 0) {
+          throw new Error("alter request must include at least one field");
+        }
+
+        return payload;
+      }
+
+      async function callEndpoint(path, options) {
+        const baseUrl = saveBaseUrl();
+        const method = (options && options.method) || "GET";
+        const url = baseUrl + path;
+        const requestInit = { method: method, headers: {} };
+
+        if (options && Object.prototype.hasOwnProperty.call(options, "body")) {
+          requestInit.headers["Content-Type"] = "application/json";
+          requestInit.body = JSON.stringify(options.body);
+        }
+
+        let response;
+        try {
+          response = await window.fetch(url, requestInit);
+        } catch (error) {
+          throw new Error("request failed for " + url + ": " + error.message);
+        }
+
+        const contentType = response.headers.get("content-type") || "";
+        const bodyText = await response.text();
+        let payload = null;
+
+        if (bodyText !== "") {
+          if (contentType.includes("application/json")) {
+            try {
+              payload = JSON.parse(bodyText);
+            } catch (error) {
+              throw new Error("failed to decode JSON from " + url + ": " + error.message);
+            }
+          } else {
+            payload = bodyText;
+          }
+        }
+
+        return {
+          bodyText: bodyText,
+          contentType: contentType,
+          method: method,
+          path: path,
+          payload: payload,
+          response: response,
+          url: url
+        };
+      }
+
+      function renderJSON(value) {
+        elements.jsonOutput.textContent = JSON.stringify(value, null, 2);
+      }
+
+      function renderMetrics(text) {
+        elements.metricsOutput.textContent = text;
+      }
+
+      function setStatus(message, state) {
+        elements.requestStatus.textContent = message;
+        elements.requestStatus.dataset.state = state || "idle";
+      }
+
+      function describeResponse(label, result) {
+        return label + ": " + result.method + " " + result.url + " -> " + result.response.status + " " + result.response.statusText;
+      }
+
+      async function runJSONAction(label, path, options) {
+        setStatus(label + ": sending request...", "idle");
+
+        try {
+          const result = await callEndpoint(path, options);
+          const payload = typeof result.payload === "string" ? { body: result.payload } : (result.payload || {});
+          renderJSON(payload);
+
+          if (!result.response.ok) {
+            const message = payload.error || result.bodyText || ("HTTP " + result.response.status);
+            setStatus(describeResponse(label, result) + " | " + message, "error");
+            return;
+          }
+
+          setStatus(describeResponse(label, result), "success");
+        } catch (error) {
+          renderJSON({ error: error.message });
+          setStatus(label + ": " + error.message, "error");
+        }
+      }
+
+      async function runMetricsFetch() {
+        setStatus("Fetch metrics: sending request...", "idle");
+
+        try {
+          const result = await callEndpoint("/metrics");
+          if (!result.response.ok) {
+            if (typeof result.payload === "object" && result.payload !== null) {
+              renderJSON(result.payload);
+            } else {
+              renderJSON({ error: result.bodyText || ("HTTP " + result.response.status) });
+            }
+            renderMetrics("# metrics request failed");
+            setStatus(describeResponse("Fetch metrics", result), "error");
+            return;
+          }
+
+          renderMetrics(result.bodyText);
+          setStatus(describeResponse("Fetch metrics", result), "success");
+        } catch (error) {
+          renderJSON({ error: error.message });
+          renderMetrics("# metrics request failed");
+          setStatus("Fetch metrics: " + error.message, "error");
+        }
+      }
+
+      function openMetricsInNewTab() {
+        try {
+          const baseUrl = saveBaseUrl();
+          const metricsUrl = baseUrl + "/metrics";
+          const newWindow = window.open(metricsUrl, "_blank", "noopener");
+          if (newWindow === null) {
+            throw new Error("browser blocked the new tab");
+          }
+          setStatus("Open metrics: launched " + metricsUrl, "success");
+        } catch (error) {
+          setStatus("Open metrics: " + error.message, "error");
+        }
+      }
+
+      function updateProfileFields() {
+        const profile = elements.startProfile.value;
+        const usesReadPercent = profile === "mixed";
+        const usesTransactionMix = profile === "transaction";
+
+        elements.startReadPercent.disabled = !usesReadPercent;
+        elements.startTransactionMix.disabled = !usesTransactionMix;
+
+        if (usesReadPercent) {
+          elements.profileHint.textContent = "Profile mixed uses read_percent. transaction_mix will be omitted.";
+          return;
+        }
+        if (usesTransactionMix) {
+          elements.profileHint.textContent = "Profile transaction uses transaction_mix. read_percent will be omitted.";
+          return;
+        }
+        elements.profileHint.textContent = "This profile ignores read_percent and transaction_mix. The page will omit both fields.";
+      }
+
+      document.getElementById("save-base-url").addEventListener("click", function () {
+        try {
+          saveBaseUrl();
+        } catch (error) {
+          setStatus("Save API URL: " + error.message, "error");
+        }
+      });
+
+      document.getElementById("load-health").addEventListener("click", function () {
+        void runJSONAction("Check health", "/healthz");
+      });
+
+      document.getElementById("load-ready").addEventListener("click", function () {
+        void runJSONAction("Check readiness", "/readyz");
+      });
+
+      document.getElementById("load-state").addEventListener("click", function () {
+        void runJSONAction("Load state", "/benchmark");
+      });
+
+      document.getElementById("load-results").addEventListener("click", function () {
+        void runJSONAction("Load results", "/benchmark/results");
+      });
+
+      document.getElementById("fetch-metrics").addEventListener("click", function () {
+        void runMetricsFetch();
+      });
+
+      document.getElementById("open-metrics").addEventListener("click", function () {
+        openMetricsInNewTab();
+      });
+
+      elements.startForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        try {
+          const payload = buildStartPayload();
+          void runJSONAction("Start benchmark", "/benchmark/start", {
+            method: "POST",
+            body: payload
+          });
+        } catch (error) {
+          renderJSON({ error: error.message });
+          setStatus("Start benchmark: " + error.message, "error");
+        }
+      });
+
+      elements.alterForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        try {
+          const payload = buildAlterPayload();
+          void runJSONAction("Alter benchmark", "/benchmark/alter", {
+            method: "POST",
+            body: payload
+          });
+        } catch (error) {
+          renderJSON({ error: error.message });
+          setStatus("Alter benchmark: " + error.message, "error");
+        }
+      });
+
+      document.getElementById("stop-benchmark").addEventListener("click", function () {
+        void runJSONAction("Stop benchmark", "/benchmark/stop", { method: "POST" });
+      });
+
+      elements.startProfile.addEventListener("change", updateProfileFields);
+
+      initializeBaseUrl();
+      updateProfileFields();
+    })();
+  </script>
+</body>
+</html>

@@ -206,6 +206,10 @@ curl --fail http://127.0.0.1:8080/benchmark/results
 - `pg_gobench_tps`
 - `pg_gobench_operation_latency_seconds`
 
+## Standalone Browser Control Page
+
+For browser-driven control without Go templates or any frontend build step, open [`examples/standalone-control-page.html`](examples/standalone-control-page.html) directly from disk in a browser. Set the API base URL, then use the page to call the same `/healthz`, `/readyz`, `/benchmark`, `/benchmark/results`, `/benchmark/start`, `/benchmark/alter`, `/benchmark/stop`, and `/metrics` endpoints described above.
+
 ## Cleanup
 
 Stop the Compose stack when you are done:

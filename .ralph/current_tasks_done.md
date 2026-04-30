@@ -1,6 +1,6 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 04:25:26 AM CEST 2026
+Generated: Thu Apr 30 04:37:14 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-postgres-reserved-schema-name-breaks-benchmark-start.md`
 
@@ -210,6 +210,18 @@ Must use tdd skill to complete
 ## Task: 02 Write Quick Start Documentation <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-08-release-docs/task-01-github-actions-multiarch-ghcr.md</blocked_by>
+
+<description>
+```
+
+==============
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-09-ui/task-01-standalone-html-control-page.md`
+
+```
+## Task: 01 Add Standalone Raw HTML Control Page <status>done</status> <passes>true</passes>
+
+<blocked_by>.ralph/tasks/story-08-release-docs/task-02-quickstart-docs.md</blocked_by>
 
 <description>
 ```

@@ -1,4 +1,4 @@
-## Task: 01 Add Standalone Raw HTML Control Page <status>not_started</status> <passes>false</passes>
+## Task: 01 Add Standalone Raw HTML Control Page <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-08-release-docs/task-02-quickstart-docs.md</blocked_by>
 
@@ -11,10 +11,12 @@ This is the final final task for the project backlog. It is a standalone static 
 </description>
 
 <acceptance_criteria>
-- [ ] A single raw HTML file exists and can be opened directly from disk in a browser.
-- [ ] The page allows configuring the API base URL.
-- [ ] The page can call start, alter, stop, state/results, health/readiness, and metrics endpoints.
-- [ ] The page is not served through Go templates and has no server-side coupling.
-- [ ] The page requires no Node, bundler, frontend framework, or build step.
-- [ ] Manual verification: open the file in a browser against a running local API and successfully view state, start a benchmark, alter it, stop it, and view metrics or a clear JSON error.
+- [x] A single raw HTML file exists and can be opened directly from disk in a browser.
+- [x] The page allows configuring the API base URL.
+- [x] The page can call start, alter, stop, state/results, health/readiness, and metrics endpoints.
+- [x] The page is not served through Go templates and has no server-side coupling.
+- [x] The page requires no Node, bundler, frontend framework, or build step.
+- [x] Manual verification: open the file in a browser against a running local API and successfully view state, start a benchmark, alter it, stop it, and view metrics or a clear JSON error.
 </acceptance_criteria>
+
+<plan>.ralph/tasks/story-09-ui/task-01-standalone-html-control-page_plans/2026-04-30-standalone-html-control-page-plan.md</plan>

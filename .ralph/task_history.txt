@@ -15,3 +15,4 @@
 .ralph/tasks/story-07-k8s/task-01-k8s-simple-deployment-configmap.md
 .ralph/tasks/story-08-release-docs/task-01-github-actions-multiarch-ghcr.md
 .ralph/tasks/story-08-release-docs/task-02-quickstart-docs.md
+.ralph/tasks/story-09-ui/task-01-standalone-html-control-page.md

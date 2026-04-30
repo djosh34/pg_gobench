@@ -369,6 +369,54 @@ func TestNewServesHealthzAndReadyzAsJSON(t *testing.T) {
 	assertJSONStatusOK(t, readyz)
 }
 
+func TestNewSupportsBrowserPreflightForBenchmarkStart(t *testing.T) {
+	server := newTestServer(&fakeControl{}, func(context.Context) error { return nil })
+
+	response := serveRequestWithHeaders(t, server, http.MethodOptions, "/benchmark/start", "", map[string]string{
+		"Origin":                         "null",
+		"Access-Control-Request-Method":  http.MethodPost,
+		"Access-Control-Request-Headers": "content-type",
+	})
+
+	if response.StatusCode != http.StatusNoContent {
+		t.Fatalf("StatusCode = %d, want %d", response.StatusCode, http.StatusNoContent)
+	}
+	if got := response.Header.Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want %q", got, "*")
+	}
+	if got := response.Header.Get("Access-Control-Allow-Headers"); got != "Content-Type" {
+		t.Fatalf("Access-Control-Allow-Headers = %q, want %q", got, "Content-Type")
+	}
+	if got := response.Header.Get("Access-Control-Allow-Methods"); got != "POST, OPTIONS" {
+		t.Fatalf("Access-Control-Allow-Methods = %q, want %q", got, "POST, OPTIONS")
+	}
+	if got := response.Header.Get("Allow"); got != "POST, OPTIONS" {
+		t.Fatalf("Allow = %q, want %q", got, "POST, OPTIONS")
+	}
+}
+
+func TestNewAddsBrowserAccessHeadersToRouteResponses(t *testing.T) {
+	server := newTestServer(&fakeControl{}, func(context.Context) error { return nil })
+
+	response := serveRequestWithHeaders(t, server, http.MethodGet, "/healthz", "", map[string]string{
+		"Origin": "null",
+	})
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("StatusCode = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+	if got := response.Header.Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want %q", got, "*")
+	}
+	if got := response.Header.Get("Access-Control-Allow-Methods"); got != "GET, OPTIONS" {
+		t.Fatalf("Access-Control-Allow-Methods = %q, want %q", got, "GET, OPTIONS")
+	}
+	if got := response.Header.Get("Access-Control-Allow-Headers"); got != "Content-Type" {
+		t.Fatalf("Access-Control-Allow-Headers = %q, want %q", got, "Content-Type")
+	}
+	assertJSONStatusOK(t, response)
+}
+
 func TestNewReturnsReadyzFailureAsServiceUnavailableWithGoErrorText(t *testing.T) {
 	server := newTestServer(&fakeControl{}, func(context.Context) error {
 		return errors.New("dial tcp 127.0.0.1:5432: connect: connection refused")
@@ -461,9 +509,18 @@ func newTestServer(controller *fakeControl, ready func(context.Context) error) *
 func serveRequest(t *testing.T, server *http.Server, method, path, body string) *http.Response {
 	t.Helper()
 
+	return serveRequestWithHeaders(t, server, method, path, body, nil)
+}
+
+func serveRequestWithHeaders(t *testing.T, server *http.Server, method, path, body string, headers map[string]string) *http.Response {
+	t.Helper()
+
 	request := httptest.NewRequest(method, path, strings.NewReader(body))
 	if body != "" {
 		request.Header.Set("Content-Type", "application/json")
+	}
+	for key, value := range headers {
+		request.Header.Set(key, value)
 	}
 	recorder := httptest.NewRecorder()
 	server.Handler.ServeHTTP(recorder, request)
