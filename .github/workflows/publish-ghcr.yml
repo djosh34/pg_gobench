@@ -1,0 +1,120 @@
+name: Publish GHCR Image
+
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  IMAGE_REPOSITORY: ghcr.io/${{ github.repository }}
+  IMAGE_TAG: ${{ github.sha }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Run repository checks
+        run: make check
+
+      - name: Run tests
+        run: make test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            platform_id: linux-amd64
+          - platform: linux/arm64
+            platform_id: linux-arm64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push platform image by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE_REPOSITORY }},push=true,push-by-digest=true,name-canonical=true
+
+      - name: Record image digest
+        run: |
+          mkdir -p "${RUNNER_TEMP}/digests"
+          touch "${RUNNER_TEMP}/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.platform_id }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download digest artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Create multi-platform manifest
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          image_ref="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+          sources=()
+
+          for digest_file in *; do
+            sources+=("${IMAGE_REPOSITORY}@sha256:${digest_file}")
+          done
+
+          docker buildx imagetools create \
+            --tag "${image_ref}" \
+            "${sources[@]}"
+
+      - name: Inspect published manifest
+        run: docker buildx imagetools inspect "${IMAGE_REPOSITORY}:${IMAGE_TAG}"

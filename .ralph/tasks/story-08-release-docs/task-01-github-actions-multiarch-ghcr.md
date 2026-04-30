@@ -21,3 +21,5 @@ This is a non-code workflow task. Do not use TDD for this task. Verification mus
 - [ ] Manual verification: workflow syntax is validated with an available local tool such as `actionlint`, or the workflow is pushed and authenticated logs are checked with `/home/joshazimullah.linux/github-api-curl`.
 - [ ] Manual verification: published package manifest is multi-platform and includes both amd64 and arm64.
 </acceptance_criteria>
+
+<plan>.ralph/tasks/story-08-release-docs/task-01-github-actions-multiarch-ghcr_plans/2026-04-30-github-actions-multiarch-ghcr-plan.md</plan>
