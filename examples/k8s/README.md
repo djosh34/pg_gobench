@@ -1,5 +1,7 @@
 # Kubernetes Example
 
+Read the repository [quick start](../../README.md) first for the canonical configuration rules, HTTP endpoints, and benchmark-control examples. This directory only covers the Kubernetes-specific deployment steps.
+
 This example keeps the application boundary the same as the local Docker Compose setup:
 
 - `pg_gobench` still reads its real YAML config from `/app/config/pg_gobench.yaml`
@@ -52,28 +54,9 @@ curl --fail http://127.0.0.1:8080/benchmark
 curl --fail http://127.0.0.1:8080/metrics
 ```
 
-## Start, Observe, And Stop A Benchmark
+## Run A Benchmark
 
-Start a small benchmark:
-
-```bash
-curl --fail -X POST http://127.0.0.1:8080/benchmark/start \
-  -H 'Content-Type: application/json' \
-  -d '{"scale":1,"duration_seconds":15,"warmup_seconds":1,"reset":true}'
-```
-
-Observe the run:
-
-```bash
-curl --fail http://127.0.0.1:8080/benchmark
-curl --fail http://127.0.0.1:8080/metrics
-```
-
-Stop the run before it completes:
-
-```bash
-curl --fail -X POST http://127.0.0.1:8080/benchmark/stop
-```
+Use the same `/benchmark/start`, `/benchmark/alter`, `/benchmark/stop`, `/benchmark`, `/benchmark/results`, and `/metrics` examples from the repository [quick start](../../README.md), but target the port-forwarded `http://127.0.0.1:8080` address.
 
 ## Cleanup
 
