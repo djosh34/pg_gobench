@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -230,6 +231,125 @@ func TestNewServesBenchmarkResultsAsJSONSnapshot(t *testing.T) {
 	}
 }
 
+func TestNewServesMetricsAsPrometheusTextWithoutAuthentication(t *testing.T) {
+	controller := &fakeControl{
+		metrics: benchmarkrun.MetricsSnapshot{
+			RunActive:            true,
+			RunDurationSeconds:   12.5,
+			ConfiguredClients:    4,
+			ActiveClients:        3,
+			OperationsTotal:      99,
+			OperationErrorsTotal: 2,
+			TPS:                  7.92,
+		},
+	}
+	server := newTestServer(controller, func(context.Context) error { return nil })
+
+	response := serveRequest(t, server, http.MethodGet, "/metrics", "")
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("StatusCode = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+	if got := response.Header.Get("Content-Type"); got != "text/plain; version=0.0.4; charset=utf-8" {
+		t.Fatalf("Content-Type = %q, want %q", got, "text/plain; version=0.0.4; charset=utf-8")
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("Read body: %v", err)
+	}
+	if err := response.Body.Close(); err != nil {
+		t.Fatalf("Close response body: %v", err)
+	}
+
+	bodyText := string(body)
+	if !strings.Contains(bodyText, "pg_gobench_run_active 1\n") {
+		t.Fatalf("body = %q, want pg_gobench_run_active metric", bodyText)
+	}
+	if !strings.Contains(bodyText, "pg_gobench_tps 7.92\n") {
+		t.Fatalf("body = %q, want pg_gobench_tps metric", bodyText)
+	}
+}
+
+func TestNewServesRequiredMetricsAndOnlyLowCardinalityHistogramLabels(t *testing.T) {
+	controller := &fakeControl{
+		metrics: benchmarkrun.MetricsSnapshot{
+			RunActive:            true,
+			RunDurationSeconds:   12.5,
+			ConfiguredClients:    4,
+			ActiveClients:        3,
+			OperationsTotal:      99,
+			OperationErrorsTotal: 2,
+			TPS:                  7.92,
+			OperationLatency: benchmarkrun.LatencyHistogramSnapshot{
+				Buckets: []benchmarkrun.LatencyHistogramBucket{
+					{UpperBoundSeconds: 0.001, CumulativeCount: 1},
+					{UpperBoundSeconds: 0.010, CumulativeCount: 3},
+				},
+				Count:      3,
+				SumSeconds: 0.012,
+			},
+		},
+	}
+	server := newTestServer(controller, func(context.Context) error { return nil })
+
+	response := serveRequest(t, server, http.MethodGet, "/metrics", "")
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("StatusCode = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("Read body: %v", err)
+	}
+	if err := response.Body.Close(); err != nil {
+		t.Fatalf("Close response body: %v", err)
+	}
+
+	bodyText := string(body)
+	requiredLines := []string{
+		"pg_gobench_run_active 1",
+		"pg_gobench_run_duration_seconds 12.5",
+		"pg_gobench_configured_clients 4",
+		"pg_gobench_active_clients 3",
+		"pg_gobench_operations_total 99",
+		"pg_gobench_operation_errors_total 2",
+		"pg_gobench_tps 7.92",
+		`pg_gobench_operation_latency_seconds_bucket{le="0.001"} 1`,
+		`pg_gobench_operation_latency_seconds_bucket{le="0.01"} 3`,
+		`pg_gobench_operation_latency_seconds_bucket{le="+Inf"} 3`,
+		"pg_gobench_operation_latency_seconds_count 3",
+		"pg_gobench_operation_latency_seconds_sum 0.012",
+	}
+	for _, want := range requiredLines {
+		if !strings.Contains(bodyText, want+"\n") {
+			t.Fatalf("body = %q, want line %q", bodyText, want)
+		}
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(bodyText), "\n") {
+		if !strings.Contains(line, "{") {
+			continue
+		}
+		if !strings.Contains(line, `{le="`) {
+			t.Fatalf("metric line %q has non-histogram labels", line)
+		}
+	}
+	forbiddenSubstrings := []string{
+		"select * from accounts",
+		"db01.internal",
+		"postgres://",
+		"benchmark_id",
+		"permission denied",
+	}
+	for _, forbidden := range forbiddenSubstrings {
+		if strings.Contains(bodyText, forbidden) {
+			t.Fatalf("body = %q, should not contain %q", bodyText, forbidden)
+		}
+	}
+}
+
 func TestNewServesHealthzAndReadyzAsJSON(t *testing.T) {
 	server := newTestServer(&fakeControl{}, func(context.Context) error { return nil })
 
@@ -416,6 +536,7 @@ func runningResults() benchmarkrun.Results {
 type fakeControl struct {
 	state       benchmarkrun.State
 	results     benchmarkrun.Results
+	metrics     benchmarkrun.MetricsSnapshot
 	startCalled bool
 	alterCalled bool
 	stopCalled  bool
@@ -442,6 +563,10 @@ func (f *fakeControl) Alter(options benchmark.AlterOptions) (benchmarkrun.State,
 
 func (f *fakeControl) Results() benchmarkrun.Results {
 	return f.results
+}
+
+func (f *fakeControl) Metrics() benchmarkrun.MetricsSnapshot {
+	return f.metrics
 }
 
 func (f *fakeControl) Stop() (benchmarkrun.State, error) {

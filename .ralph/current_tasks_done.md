@@ -1,6 +1,6 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 02:57:13 AM CEST 2026
+Generated: Thu Apr 30 03:08:52 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-01-foundation/task-01-bootstrap-go-http-service.md`
 
@@ -103,6 +103,18 @@ Must use tdd skill to complete
 ## Task: 01 Aggregate Benchmark Stats In Memory <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-03-core-benchmark/task-02-core-read-write-transaction-workloads.md</blocked_by>
+
+<description>
+```
+
+==============
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-04-observability/task-02-prometheus-metrics.md`
+
+```
+## Task: 02 Expose Prometheus Metrics Endpoint <status>done</status> <passes>true</passes>
+
+<blocked_by>.ralph/tasks/story-04-observability/task-01-stats-aggregation.md</blocked_by>
 
 <description>
 ```

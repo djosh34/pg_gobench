@@ -37,20 +37,22 @@ type Runner interface {
 type Run interface {
 	Alter(options benchmark.AlterOptions) error
 	Snapshot() Stats
+	Metrics() MetricsSnapshot
 	Wait() error
 }
 
 type Option func(*Coordinator)
 
 type Coordinator struct {
-	mu     sync.Mutex
-	runner Runner
-	now    func() time.Time
-	state  State
-	stats  Stats
-	run    Run
-	cancel context.CancelFunc
-	runID  uint64
+	mu      sync.Mutex
+	runner  Runner
+	now     func() time.Time
+	state   State
+	stats   Stats
+	metrics MetricsSnapshot
+	run     Run
+	cancel  context.CancelFunc
+	runID   uint64
 }
 
 var ErrRunActive = errors.New("benchmark run already active")
@@ -63,7 +65,8 @@ func New(runner Runner, opts ...Option) *Coordinator {
 		state: State{
 			Status: StatusIdle,
 		},
-		stats: zeroStats(),
+		stats:   zeroStats(),
+		metrics: MetricsSnapshot{},
 	}
 
 	for _, opt := range opts {
@@ -102,6 +105,7 @@ func (c *Coordinator) Start(ctx context.Context, options benchmark.StartOptions)
 		Options: cloneStartOptions(options),
 	}
 	c.stats = zeroStats()
+	c.metrics = MetricsSnapshot{}
 	c.mu.Unlock()
 
 	if c.runner == nil {
@@ -195,6 +199,18 @@ func (c *Coordinator) Results() Results {
 	return stateToResults(c.state, stats)
 }
 
+func (c *Coordinator) Metrics() MetricsSnapshot {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	metrics := c.metrics
+	if c.run != nil {
+		metrics = c.run.Metrics()
+	}
+	metrics.RunActive = c.state.Status == StatusStarting || c.state.Status == StatusRunning || c.state.Status == StatusStopping
+	return metrics
+}
+
 func cloneState(state State) State {
 	cloned := State{
 		Status:  state.Status,
@@ -227,6 +243,7 @@ func (c *Coordinator) finishStartFailure(runID uint64, options benchmark.StartOp
 		c.state.Options = cloneStartOptions(options)
 		c.state.StoppedAt = timePtr(stoppedAt)
 		c.stats = zeroStats()
+		c.metrics = MetricsSnapshot{}
 		return cloneState(c.state), err
 	}
 
@@ -237,6 +254,7 @@ func (c *Coordinator) finishStartFailure(runID uint64, options benchmark.StartOp
 		Error:     compactErrorText(err.Error()),
 	}
 	c.stats = zeroStats()
+	c.metrics = MetricsSnapshot{}
 
 	return cloneState(c.state), err
 }
@@ -252,6 +270,7 @@ func (c *Coordinator) waitForRun(runID uint64, run Run) {
 	}
 
 	c.stats = run.Snapshot()
+	c.metrics = run.Metrics()
 	c.run = nil
 	c.cancel = nil
 	stoppedAt := c.now()

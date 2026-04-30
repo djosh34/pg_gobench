@@ -18,6 +18,7 @@ type Benchmark interface {
 	Stop() (benchmarkrun.State, error)
 	State() benchmarkrun.State
 	Results() benchmarkrun.Results
+	Metrics() benchmarkrun.MetricsSnapshot
 }
 
 type Dependencies struct {
@@ -52,6 +53,7 @@ func New(addr string, deps Dependencies) *http.Server {
 	mux.HandleFunc("/benchmark/start", h.handleBenchmarkStart)
 	mux.HandleFunc("/benchmark/alter", h.handleBenchmarkAlter)
 	mux.HandleFunc("/benchmark/stop", h.handleBenchmarkStop)
+	mux.HandleFunc("/metrics", h.handleMetrics)
 
 	return &http.Server{
 		Addr:    addr,
@@ -204,6 +206,24 @@ func (h handler) handleBenchmarkStop(w http.ResponseWriter, r *http.Request) {
 
 	if err := writeJSON(w, http.StatusOK, state); err != nil {
 		log.Printf("write /benchmark/stop response: %v", err)
+	}
+}
+
+func (h handler) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodGet) {
+		return
+	}
+	if h.benchmark == nil {
+		if err := writeError(w, http.StatusInternalServerError, errors.New("benchmark controller unavailable")); err != nil {
+			log.Printf("write /metrics error response: %v", err)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", benchmarkrun.PrometheusContentType())
+	w.WriteHeader(http.StatusOK)
+	if err := h.benchmark.Metrics().WritePrometheus(w); err != nil {
+		log.Printf("write /metrics response: %v", err)
 	}
 }
 

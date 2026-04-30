@@ -1,15 +1,15 @@
 # Current Tasks Summary
 
-Generated: Thu Apr 30 02:57:13 AM CEST 2026
+Generated: Thu Apr 30 03:08:52 AM CEST 2026
 
-# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-04-observability/task-02-prometheus-metrics.md`
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/smells/2026-04-30-prometheus-metrics-boundary-smells.md`
 
 ```
-## Task: 02 Expose Prometheus Metrics Endpoint <status>not_started</status> <passes>false</passes>
+## Smell Set: prometheus-metrics-boundary-smells <status>not_started</status> <passes>false</passes>
 
-<blocked_by>.ralph/tasks/story-04-observability/task-01-stats-aggregation.md</blocked_by>
+Please refer to skill 'improve-code-boundaries' to see what smells there are.
 
-<description>
+Inside dirs:
 ```
 
 ==============

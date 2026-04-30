@@ -470,6 +470,7 @@ type fakeRun struct {
 	alterCalls     int
 	alteredOptions benchmark.AlterOptions
 	snapshot       benchmarkrun.Stats
+	metrics        benchmarkrun.MetricsSnapshot
 }
 
 func (f *fakeRun) Alter(options benchmark.AlterOptions) error {
@@ -487,6 +488,10 @@ func (f *fakeRun) Wait() error {
 
 func (f *fakeRun) Snapshot() benchmarkrun.Stats {
 	return f.snapshot
+}
+
+func (f *fakeRun) Metrics() benchmarkrun.MetricsSnapshot {
+	return f.metrics
 }
 
 func intPtr(value int) *int {

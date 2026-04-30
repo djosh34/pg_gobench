@@ -101,33 +101,14 @@ func (s *runStats) snapshot(now time.Time) benchmarkrun.Stats {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	endAt := now
-	if s.finishedAt != nil {
-		endAt = *s.finishedAt
-	}
-	elapsedSeconds := 0.0
-	if endAt.After(s.measurementStartedAt) {
-		elapsedSeconds = endAt.Sub(s.measurementStartedAt).Seconds()
-	}
+	return s.sampleLocked(now).statsSnapshot()
+}
 
-	stats := benchmarkrun.Stats{
-		Latency:              s.latency.snapshot(),
-		TPS:                  ratePerSecond(s.totalOperations, elapsedSeconds),
-		TotalOperations:      s.totalOperations,
-		SuccessfulOperations: s.successfulOperations,
-		FailedOperations:     s.failedOperations,
-		ActiveClients:        s.activeClients,
-		ConfiguredClients:    s.configuredClients,
-		ElapsedSeconds:       elapsedSeconds,
-		OperationRates:       operationRatesSnapshot(s.perKind, elapsedSeconds),
-		LatestError:          s.latestError,
-	}
-	if s.finishedAt == nil && !s.runStartedAt.IsZero() && now.Before(s.measurementStartedAt) {
-		stats.ElapsedSeconds = 0
-		stats.TPS = 0
-		stats.OperationRates = benchmarkrun.OperationRates{}
-	}
-	return stats
+func (s *runStats) metricsSnapshot(now time.Time) benchmarkrun.MetricsSnapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.sampleLocked(now).metricsSnapshot()
 }
 
 type latencyHistogram struct {
@@ -177,6 +158,24 @@ func (h latencyHistogram) snapshot() benchmarkrun.LatencyStats {
 		P90Milliseconds:     durationMilliseconds(h.quantile(0.90)),
 		P95Milliseconds:     durationMilliseconds(h.quantile(0.95)),
 		P99Milliseconds:     durationMilliseconds(h.quantile(0.99)),
+	}
+}
+
+func (h latencyHistogram) metricsSnapshot() benchmarkrun.LatencyHistogramSnapshot {
+	buckets := make([]benchmarkrun.LatencyHistogramBucket, 0, len(h.bounds))
+	var cumulative uint64
+	for index, upperBound := range h.bounds {
+		cumulative += h.counts[index]
+		buckets = append(buckets, benchmarkrun.LatencyHistogramBucket{
+			UpperBoundSeconds: upperBound.Seconds(),
+			CumulativeCount:   cumulative,
+		})
+	}
+
+	return benchmarkrun.LatencyHistogramSnapshot{
+		Buckets:    buckets,
+		Count:      h.total,
+		SumSeconds: h.sum.Seconds(),
 	}
 }
 
@@ -241,6 +240,71 @@ func ratePerSecond(count uint64, elapsedSeconds float64) float64 {
 
 func durationMilliseconds(duration time.Duration) float64 {
 	return float64(duration) / float64(time.Millisecond)
+}
+
+type sampledRunStats struct {
+	latency              latencyHistogram
+	elapsedSeconds       float64
+	totalOperations      uint64
+	successfulOperations uint64
+	failedOperations     uint64
+	activeClients        int
+	configuredClients    int
+	perKind              [operationKindCount]uint64
+	latestError          string
+}
+
+func (s *runStats) sampleLocked(now time.Time) sampledRunStats {
+	endAt := now
+	if s.finishedAt != nil {
+		endAt = *s.finishedAt
+	}
+	elapsedSeconds := 0.0
+	if endAt.After(s.measurementStartedAt) {
+		elapsedSeconds = endAt.Sub(s.measurementStartedAt).Seconds()
+	}
+	if s.finishedAt == nil && !s.runStartedAt.IsZero() && now.Before(s.measurementStartedAt) {
+		elapsedSeconds = 0
+	}
+
+	return sampledRunStats{
+		latency:              s.latency,
+		elapsedSeconds:       elapsedSeconds,
+		totalOperations:      s.totalOperations,
+		successfulOperations: s.successfulOperations,
+		failedOperations:     s.failedOperations,
+		activeClients:        s.activeClients,
+		configuredClients:    s.configuredClients,
+		perKind:              s.perKind,
+		latestError:          s.latestError,
+	}
+}
+
+func (s sampledRunStats) statsSnapshot() benchmarkrun.Stats {
+	return benchmarkrun.Stats{
+		Latency:              s.latency.snapshot(),
+		TPS:                  ratePerSecond(s.totalOperations, s.elapsedSeconds),
+		TotalOperations:      s.totalOperations,
+		SuccessfulOperations: s.successfulOperations,
+		FailedOperations:     s.failedOperations,
+		ActiveClients:        s.activeClients,
+		ConfiguredClients:    s.configuredClients,
+		ElapsedSeconds:       s.elapsedSeconds,
+		OperationRates:       operationRatesSnapshot(s.perKind, s.elapsedSeconds),
+		LatestError:          s.latestError,
+	}
+}
+
+func (s sampledRunStats) metricsSnapshot() benchmarkrun.MetricsSnapshot {
+	return benchmarkrun.MetricsSnapshot{
+		RunDurationSeconds:   s.elapsedSeconds,
+		ConfiguredClients:    s.configuredClients,
+		ActiveClients:        s.activeClients,
+		OperationsTotal:      s.totalOperations,
+		OperationErrorsTotal: s.failedOperations,
+		TPS:                  ratePerSecond(s.totalOperations, s.elapsedSeconds),
+		OperationLatency:     s.latency.metricsSnapshot(),
+	}
 }
 
 func compactErrorText(message string) string {

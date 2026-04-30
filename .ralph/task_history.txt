@@ -7,3 +7,4 @@
 .ralph/tasks/story-03-core-benchmark/task-01-benchmark-schema-scale.md
 .ralph/tasks/story-03-core-benchmark/task-02-core-read-write-transaction-workloads.md
 .ralph/tasks/story-04-observability/task-01-stats-aggregation.md
+.ralph/tasks/story-04-observability/task-02-prometheus-metrics.md

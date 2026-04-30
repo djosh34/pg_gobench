@@ -103,6 +103,10 @@ func (r *activeRun) Snapshot() benchmarkrun.Stats {
 	return r.stats.snapshot(r.clock.Now())
 }
 
+func (r *activeRun) Metrics() benchmarkrun.MetricsSnapshot {
+	return r.stats.metricsSnapshot(r.clock.Now())
+}
+
 func (r *activeRun) watchParent(parent context.Context) {
 	select {
 	case <-r.done:
