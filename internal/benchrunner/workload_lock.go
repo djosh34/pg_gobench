@@ -39,7 +39,10 @@ func (w *lockWorkload) runLockContention(ctx context.Context, session *workerSes
 			if err := setLocalLockTimeout(ctx, tx, lockTimeout); err != nil {
 				return err
 			}
-			return lockAccountNowaitQuery(ctx, tx, hotAccountID(iteration, w.scale))
+			if err := lockAccountNowaitQuery(ctx, tx, hotAccountID(iteration, w.scale)); err != nil {
+				return countFailedOperation(err)
+			}
+			return nil
 		},
 	)
 }
@@ -60,7 +63,11 @@ func (w *lockWorkload) runHotUpdate(ctx context.Context, session *workerSession,
 				return err
 			}
 			if err := accountUpdateQuery(ctx, tx, hotAccountID(iteration, w.scale), amount(iteration)); err != nil {
-				return fmt.Errorf("update account: %w", err)
+				wrapped := fmt.Errorf("update account: %w", err)
+				if isLockNotAvailableError(err) {
+					return countFailedOperation(wrapped)
+				}
+				return wrapped
 			}
 			return nil
 		},

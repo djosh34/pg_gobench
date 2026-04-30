@@ -114,19 +114,20 @@ This is preferable to:
 
 ## Error Semantics
 
-Keep the existing fail-fast runner behavior unless RED proves it is wrong. That means:
+Keep the runner fail-fast by default, but carve out the lock-profile contention contract as a counted non-terminal operation failure. That means:
 
-- the runtime records the failed operation in stats
+- the runtime records every failed operation in stats
 - `latest_error` keeps the compact Go error text
-- the run still finishes with an error after the operation failure is recorded
+- setup failures, pacing failures, begin/commit failures, and unrelated workload errors still finish the run with an error after the operation failure is recorded
 
 For contention paths specifically:
 
 - do not special-case lock timeouts, deadlocks, serialization failures, or `NOWAIT` conflicts into success
 - return a wrapped Go error with workload context such as `lock contention: ...` or `hot update: ...`
-- let the existing runtime/stats path count the failure and stop the run
+- let the lock workload mark expected contention failures as counted operation errors so the runtime records them and continues the run
+- keep SQLSTATE/contention classification private to `internal/benchrunner`
 
-If RED shows that the task requires continue-on-error semantics instead of the current fail-fast runner contract, switch this plan back to `TO BE VERIFIED` immediately because that is a larger behavioral change than this story currently declares.
+If RED shows that the task requires generalized continue-on-error semantics outside the lock-profile contention boundary, switch this plan back to `TO BE VERIFIED` immediately because that is a larger behavioral change than this story should absorb implicitly.
 
 ## TDD Strategy
 
@@ -138,7 +139,7 @@ Planned slices:
 - [ ] Slice 2: failing `database/sql` integration-style test proving the `join` profile executes both join SQL and aggregation/group-by SQL against benchmark-owned tables
 - [ ] Slice 3: failing `database/sql` integration-style test proving the `lock` profile executes both explicit lock-contention SQL and hot-row update SQL through the runner
 - [ ] Slice 4: failing stats-shape test proving `Results` and `Sample.Stats()` expose the extended fixed `operation_rates` keys across old and new profiles
-- [ ] Slice 5: failing runtime/error test proving contention-related SQL errors are counted as failed operations and surfaced through compact Go error text instead of being ignored
+- [ ] Slice 5: failing runtime/error test proving lock-profile contention SQL errors are counted as failed operations and surfaced through compact Go error text without terminating the run immediately
 - [ ] Slice 6: refactor after green to split workload families into smaller files and use one shared private SQL executor boundary
 
 Tests must stay on behavior boundaries:

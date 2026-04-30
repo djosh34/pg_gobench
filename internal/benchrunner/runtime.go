@@ -206,6 +206,9 @@ func (r *activeRun) startWorkerLocked() {
 				if ctx.Err() != nil {
 					return
 				}
+				if isCountedOperationError(err) {
+					continue
+				}
 				r.finish(err)
 				return
 			}

@@ -1,6 +1,6 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 05:02:24 AM CEST 2026
+Generated: Thu Apr 30 05:21:30 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-benchmark-schema-contract-drifted-to-bench.md`
 
@@ -9,6 +9,17 @@ Generated: Thu Apr 30 05:02:24 AM CEST 2026
 
 <description>
 The manual verification pass for `.ralph/tasks/story-99-manual-verify-everything/task-01-manual-verify-everything.md` found a real contract mismatch in the shipped product.
+```
+
+==============
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-lock-profile-aborts-on-first-contention-error.md`
+
+```
+## Bug: Lock Profile Aborts On First Contention Error <status>done</status> <passes>true</passes> <priority>high</priority>
+
+<description>
+During the story-99 manual verification pass against the real Docker Compose deployment, the advanced `lock` workload aborted the entire benchmark as soon as PostgreSQL returned a row-lock conflict.
 ```
 
 ==============

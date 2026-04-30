@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"pg_gobench/internal/benchmark"
 	"pg_gobench/internal/benchmarkrun"
 )
@@ -509,11 +511,14 @@ func TestCoordinatorMarksBenchrunnerWorkerSQLFailureAsFailed(t *testing.T) {
 
 func TestCoordinatorCountsAndSurfacesLockContentionFailures(t *testing.T) {
 	db, _ := openDriverDB(t, testDriverConfig{
-		onExec: func(call recordedCall) error {
-			if call.inTx && strings.Contains(call.query, "SET LOCAL lock_timeout") {
-				return fmt.Errorf("could not obtain lock on row")
+		onQuery: func(call recordedCall) driver.Rows {
+			if call.inTx && strings.Contains(call.query, "FOR UPDATE NOWAIT") {
+				return &errorRows{
+					columns: []string{"id"},
+					err:     fmt.Errorf("could not obtain lock on row"),
+				}
 			}
-			return nil
+			return rowsWithColumns([]string{"ignored"}, nil)
 		},
 	})
 	t.Cleanup(func() {
@@ -538,29 +543,237 @@ func TestCoordinatorCountsAndSurfacesLockContentionFailures(t *testing.T) {
 	}
 
 	waitForCondition(t, 2*time.Second, func() bool {
-		return coordinator.State().Status == benchmarkrun.StatusFailed
+		return coordinator.Results().Stats.FailedOperations > 0
 	})
 
-	failedState := coordinator.State()
-	if failedState.Status != benchmarkrun.StatusFailed {
-		t.Fatalf("final state = %#v, want failed", failedState)
+	runningState := coordinator.State()
+	if runningState.Status != benchmarkrun.StatusRunning {
+		t.Fatalf("state after contention = %#v, want running", runningState)
 	}
-	if !strings.Contains(failedState.Error, "lock contention: could not obtain lock on row") {
-		t.Fatalf("failed state error = %q, want lock contention context", failedState.Error)
+	if runningState.Error != "" {
+		t.Fatalf("running state error = %q, want empty while run continues", runningState.Error)
 	}
 
 	results := coordinator.Results()
-	if results.Stats.TotalOperations != 1 {
-		t.Fatalf("TotalOperations = %d, want %d", results.Stats.TotalOperations, 1)
+	if results.Status != benchmarkrun.StatusRunning {
+		t.Fatalf("results status = %q, want %q", results.Status, benchmarkrun.StatusRunning)
 	}
-	if results.Stats.SuccessfulOperations != 0 {
-		t.Fatalf("SuccessfulOperations = %d, want %d", results.Stats.SuccessfulOperations, 0)
+	if results.Error != "" {
+		t.Fatalf("results error = %q, want empty while run continues", results.Error)
 	}
-	if results.Stats.FailedOperations != 1 {
-		t.Fatalf("FailedOperations = %d, want %d", results.Stats.FailedOperations, 1)
+	if results.Stats.TotalOperations == 0 {
+		t.Fatalf("TotalOperations = %d, want non-zero counted operations", results.Stats.TotalOperations)
 	}
-	if results.Stats.LatestError != "lock contention: could not obtain lock on row" {
+	if results.Stats.SuccessfulOperations == 0 {
+		t.Fatalf("SuccessfulOperations = %d, want hot-update operations to keep succeeding while contention is counted", results.Stats.SuccessfulOperations)
+	}
+	if results.Stats.FailedOperations == 0 {
+		t.Fatalf("FailedOperations = %d, want non-zero contention failures", results.Stats.FailedOperations)
+	}
+	if !strings.Contains(results.Stats.LatestError, "lock contention: could not obtain lock on row") {
 		t.Fatalf("LatestError = %q, want compact lock contention error", results.Stats.LatestError)
+	}
+
+	stoppedState, err := coordinator.Stop()
+	if err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+	if stoppedState.Status != benchmarkrun.StatusStopping {
+		t.Fatalf("stop state = %q, want %q", stoppedState.Status, benchmarkrun.StatusStopping)
+	}
+
+	waitForCondition(t, 2*time.Second, func() bool {
+		return coordinator.State().Status == benchmarkrun.StatusStopped
+	})
+
+	finalState := coordinator.State()
+	if finalState.Status != benchmarkrun.StatusStopped {
+		t.Fatalf("final state = %#v, want stopped", finalState)
+	}
+	if finalState.Error != "" {
+		t.Fatalf("final state error = %q, want empty after stop", finalState.Error)
+	}
+}
+
+func TestCoordinatorCountsAndSurfacesHotUpdateLockTimeoutFailures(t *testing.T) {
+	db, _ := openDriverDB(t, testDriverConfig{
+		onExec: func(call recordedCall) error {
+			if call.inTx && strings.Contains(call.query, "UPDATE "+benchmarkTable("accounts")) {
+				return &pgconn.PgError{
+					Severity: "ERROR",
+					Code:     "55P03",
+					Message:  "canceling statement due to lock timeout",
+				}
+			}
+			return nil
+		},
+		onQuery: func(call recordedCall) driver.Rows {
+			if call.inTx && strings.Contains(call.query, "FOR UPDATE NOWAIT") {
+				return rowsWithColumns([]string{"id"}, [][]driver.Value{{int64(1)}})
+			}
+			return rowsWithColumns([]string{"ignored"}, nil)
+		},
+	})
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("Close db: %v", err)
+		}
+	})
+
+	coordinator := benchmarkrun.New(New(db))
+	state, err := coordinator.Start(context.Background(), benchmark.StartOptions{
+		Scale:           1,
+		Clients:         1,
+		DurationSeconds: 600,
+		WarmupSeconds:   0,
+		Profile:         benchmark.ProfileLock,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if state.Status != benchmarkrun.StatusRunning {
+		t.Fatalf("Start state = %q, want %q", state.Status, benchmarkrun.StatusRunning)
+	}
+
+	waitForCondition(t, 2*time.Second, func() bool {
+		return coordinator.Results().Stats.FailedOperations > 0
+	})
+
+	runningState := coordinator.State()
+	if runningState.Status != benchmarkrun.StatusRunning {
+		t.Fatalf("state after hot-update timeout = %#v, want running", runningState)
+	}
+	if runningState.Error != "" {
+		t.Fatalf("running state error = %q, want empty while run continues", runningState.Error)
+	}
+
+	results := coordinator.Results()
+	if results.Status != benchmarkrun.StatusRunning {
+		t.Fatalf("results status = %q, want %q", results.Status, benchmarkrun.StatusRunning)
+	}
+	if results.Error != "" {
+		t.Fatalf("results error = %q, want empty while run continues", results.Error)
+	}
+	if results.Stats.TotalOperations == 0 {
+		t.Fatalf("TotalOperations = %d, want non-zero counted operations", results.Stats.TotalOperations)
+	}
+	if results.Stats.SuccessfulOperations == 0 {
+		t.Fatalf("SuccessfulOperations = %d, want lock-contention operations to keep succeeding while hot-update timeouts are counted", results.Stats.SuccessfulOperations)
+	}
+	if results.Stats.FailedOperations == 0 {
+		t.Fatalf("FailedOperations = %d, want non-zero hot-update timeout failures", results.Stats.FailedOperations)
+	}
+	if !strings.Contains(results.Stats.LatestError, "hot update: update account: ERROR: canceling statement due to lock timeout (SQLSTATE 55P03)") {
+		t.Fatalf("LatestError = %q, want compact hot-update timeout error", results.Stats.LatestError)
+	}
+
+	stoppedState, err := coordinator.Stop()
+	if err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+	if stoppedState.Status != benchmarkrun.StatusStopping {
+		t.Fatalf("stop state = %q, want %q", stoppedState.Status, benchmarkrun.StatusStopping)
+	}
+
+	waitForCondition(t, 2*time.Second, func() bool {
+		return coordinator.State().Status == benchmarkrun.StatusStopped
+	})
+
+	finalState := coordinator.State()
+	if finalState.Status != benchmarkrun.StatusStopped {
+		t.Fatalf("final state = %#v, want stopped", finalState)
+	}
+	if finalState.Error != "" {
+		t.Fatalf("final state error = %q, want empty after stop", finalState.Error)
+	}
+}
+
+func TestCoordinatorCountsStringWrappedHotUpdateLockTimeoutFailures(t *testing.T) {
+	db, _ := openDriverDB(t, testDriverConfig{
+		onExec: func(call recordedCall) error {
+			if call.inTx && strings.Contains(call.query, "UPDATE "+benchmarkTable("accounts")) {
+				return fmt.Errorf("ERROR: canceling statement due to lock timeout (SQLSTATE 55P03)")
+			}
+			return nil
+		},
+		onQuery: func(call recordedCall) driver.Rows {
+			if call.inTx && strings.Contains(call.query, "FOR UPDATE NOWAIT") {
+				return rowsWithColumns([]string{"id"}, [][]driver.Value{{int64(1)}})
+			}
+			return rowsWithColumns([]string{"ignored"}, nil)
+		},
+	})
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("Close db: %v", err)
+		}
+	})
+
+	coordinator := benchmarkrun.New(New(db))
+	state, err := coordinator.Start(context.Background(), benchmark.StartOptions{
+		Scale:           1,
+		Clients:         1,
+		DurationSeconds: 600,
+		WarmupSeconds:   0,
+		Profile:         benchmark.ProfileLock,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if state.Status != benchmarkrun.StatusRunning {
+		t.Fatalf("Start state = %q, want %q", state.Status, benchmarkrun.StatusRunning)
+	}
+
+	waitForCondition(t, 2*time.Second, func() bool {
+		return coordinator.Results().Stats.FailedOperations > 0
+	})
+
+	runningState := coordinator.State()
+	if runningState.Status != benchmarkrun.StatusRunning {
+		t.Fatalf("state after wrapped hot-update timeout = %#v, want running", runningState)
+	}
+	if runningState.Error != "" {
+		t.Fatalf("running state error = %q, want empty while run continues", runningState.Error)
+	}
+
+	results := coordinator.Results()
+	if results.Status != benchmarkrun.StatusRunning {
+		t.Fatalf("results status = %q, want %q", results.Status, benchmarkrun.StatusRunning)
+	}
+	if results.Error != "" {
+		t.Fatalf("results error = %q, want empty while run continues", results.Error)
+	}
+	if results.Stats.TotalOperations == 0 {
+		t.Fatalf("TotalOperations = %d, want non-zero counted operations", results.Stats.TotalOperations)
+	}
+	if results.Stats.SuccessfulOperations == 0 {
+		t.Fatalf("SuccessfulOperations = %d, want lock-contention operations to keep succeeding while wrapped hot-update timeouts are counted", results.Stats.SuccessfulOperations)
+	}
+	if results.Stats.FailedOperations == 0 {
+		t.Fatalf("FailedOperations = %d, want non-zero wrapped hot-update timeout failures", results.Stats.FailedOperations)
+	}
+	if !strings.Contains(results.Stats.LatestError, "hot update: update account: ERROR: canceling statement due to lock timeout (SQLSTATE 55P03)") {
+		t.Fatalf("LatestError = %q, want compact wrapped hot-update timeout error", results.Stats.LatestError)
+	}
+
+	stoppedState, err := coordinator.Stop()
+	if err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+	if stoppedState.Status != benchmarkrun.StatusStopping {
+		t.Fatalf("stop state = %q, want %q", stoppedState.Status, benchmarkrun.StatusStopping)
+	}
+
+	waitForCondition(t, 2*time.Second, func() bool {
+		return coordinator.State().Status == benchmarkrun.StatusStopped
+	})
+
+	finalState := coordinator.State()
+	if finalState.Status != benchmarkrun.StatusStopped {
+		t.Fatalf("final state = %#v, want stopped", finalState)
+	}
+	if finalState.Error != "" {
+		t.Fatalf("final state error = %q, want empty after stop", finalState.Error)
 	}
 }
 
@@ -718,6 +931,11 @@ type testRows struct {
 	index   int
 }
 
+type errorRows struct {
+	columns []string
+	err     error
+}
+
 func rowsWithColumns(columns []string, values [][]driver.Value) driver.Rows {
 	return &testRows{columns: columns, values: values}
 }
@@ -738,6 +956,18 @@ func (r *testRows) Next(dest []driver.Value) error {
 	copy(dest, r.values[r.index])
 	r.index++
 	return nil
+}
+
+func (r *errorRows) Columns() []string {
+	return r.columns
+}
+
+func (r *errorRows) Close() error {
+	return nil
+}
+
+func (r *errorRows) Next([]driver.Value) error {
+	return r.err
 }
 
 var testDriverID atomic.Uint64
