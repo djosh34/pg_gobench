@@ -1,4 +1,4 @@
-## Task: 01 Add Scratch Dockerfile <status>not_started</status> <passes>false</passes>
+## Task: 01 Add Scratch Dockerfile <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-04-observability/task-02-prometheus-metrics.md</blocked_by>
 
@@ -11,10 +11,10 @@ This is a non-code packaging task. Do not use TDD for this task. Verification mu
 </description>
 
 <acceptance_criteria>
-- [ ] Dockerfile uses a multi-stage build and has `scratch` as the final stage.
-- [ ] Final image contains the compiled service binary and required runtime CA material only.
-- [ ] Final image runs without a shell.
-- [ ] Manual verification: `docker build -t pg_gobench:local .` succeeds.
-- [ ] Manual verification: running the image with an explicit config path and bind address starts the HTTP server or fails loudly with a clear config/database error.
-- [ ] Manual verification: inspect the image or Dockerfile to confirm no source tree, package manager, or build tool is present in the final stage.
+ - [x] Dockerfile uses a multi-stage build and has `scratch` as the final stage.
+ - [x] Final image contains the compiled service binary and required runtime CA material only.
+ - [x] Final image runs without a shell.
+ - [x] Manual verification: `docker build -t pg_gobench:local .` succeeds.
+ - [x] Manual verification: running the image with an explicit config path and bind address starts the HTTP server or fails loudly with a clear config/database error.
+ - [x] Manual verification: inspect the image or Dockerfile to confirm no source tree, package manager, or build tool is present in the final stage.
 </acceptance_criteria>

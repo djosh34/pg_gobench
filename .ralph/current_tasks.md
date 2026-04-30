@@ -1,18 +1,6 @@
 # Current Tasks Summary
 
-Generated: Thu Apr 30 03:18:12 AM CEST 2026
-
-# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-05-delivery/task-01-scratch-dockerfile.md`
-
-```
-## Task: 01 Add Scratch Dockerfile <status>not_started</status> <passes>false</passes>
-
-<blocked_by>.ralph/tasks/story-04-observability/task-02-prometheus-metrics.md</blocked_by>
-
-<description>
-```
-
-==============
+Generated: Thu Apr 30 03:25:48 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-05-delivery/task-02-docker-compose-postgres-example.md`
 
