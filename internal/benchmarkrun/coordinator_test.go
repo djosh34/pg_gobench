@@ -354,13 +354,21 @@ func TestCoordinatorMarksStartFailureAsFailedAndExposesSetupError(t *testing.T) 
 func TestCoordinatorResultsExposeLiveSnapshotAndRetainFinishedStats(t *testing.T) {
 	run := &fakeRun{
 		waitResult: make(chan error, 1),
-		snapshot: benchmarkrun.Stats{
+		sample: benchmarkrun.Sample{
+			Latency: benchmarkrun.LatencySample{
+				Buckets: []benchmarkrun.LatencyHistogramBucket{
+					{UpperBoundSeconds: 0.005, CumulativeCount: 2},
+				},
+				Count:      2,
+				SumSeconds: 0.009,
+			},
+			ElapsedSeconds:       2,
 			TotalOperations:      7,
 			SuccessfulOperations: 6,
 			FailedOperations:     1,
 			ConfiguredClients:    4,
-			OperationRates: benchmarkrun.OperationRates{
-				PointRead: 3.5,
+			OperationCounts: benchmarkrun.OperationCounts{
+				PointRead: 7,
 			},
 			LatestError: "worker failed compactly",
 		},
@@ -394,6 +402,17 @@ func TestCoordinatorResultsExposeLiveSnapshotAndRetainFinishedStats(t *testing.T
 	}
 	if finished.Stats.LatestError != "worker failed compactly" {
 		t.Fatalf("finished LatestError = %q, want snapshot value", finished.Stats.LatestError)
+	}
+
+	metrics := coordinator.Metrics()
+	if metrics.RunActive {
+		t.Fatal("finished metrics RunActive = true, want false")
+	}
+	if metrics.OperationsTotal != 7 {
+		t.Fatalf("finished metrics OperationsTotal = %d, want %d", metrics.OperationsTotal, 7)
+	}
+	if metrics.OperationLatency.Count != 2 {
+		t.Fatalf("finished metrics histogram count = %d, want %d", metrics.OperationLatency.Count, 2)
 	}
 }
 
@@ -469,8 +488,7 @@ type fakeRun struct {
 	alterErr       error
 	alterCalls     int
 	alteredOptions benchmark.AlterOptions
-	snapshot       benchmarkrun.Stats
-	metrics        benchmarkrun.MetricsSnapshot
+	sample         benchmarkrun.Sample
 }
 
 func (f *fakeRun) Alter(options benchmark.AlterOptions) error {
@@ -486,12 +504,8 @@ func (f *fakeRun) Wait() error {
 	return <-f.waitResult
 }
 
-func (f *fakeRun) Snapshot() benchmarkrun.Stats {
-	return f.snapshot
-}
-
-func (f *fakeRun) Metrics() benchmarkrun.MetricsSnapshot {
-	return f.metrics
+func (f *fakeRun) Sample() benchmarkrun.Sample {
+	return f.sample
 }
 
 func intPtr(value int) *int {

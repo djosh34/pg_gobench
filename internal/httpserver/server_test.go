@@ -348,6 +348,9 @@ func TestNewServesRequiredMetricsAndOnlyLowCardinalityHistogramLabels(t *testing
 			t.Fatalf("body = %q, should not contain %q", bodyText, forbidden)
 		}
 	}
+	if strings.Contains(bodyText, "latest_error") {
+		t.Fatalf("body = %q, should not contain JSON-only latest_error field", bodyText)
+	}
 }
 
 func TestNewServesHealthzAndReadyzAsJSON(t *testing.T) {

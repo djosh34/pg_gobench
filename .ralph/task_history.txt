@@ -8,3 +8,4 @@
 .ralph/tasks/story-03-core-benchmark/task-02-core-read-write-transaction-workloads.md
 .ralph/tasks/story-04-observability/task-01-stats-aggregation.md
 .ralph/tasks/story-04-observability/task-02-prometheus-metrics.md
+.ralph/tasks/smells/2026-04-30-prometheus-metrics-boundary-smells.md

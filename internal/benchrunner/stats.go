@@ -97,18 +97,11 @@ func (s *runStats) finish(finishedAt time.Time, err error) {
 	}
 }
 
-func (s *runStats) snapshot(now time.Time) benchmarkrun.Stats {
+func (s *runStats) sample(now time.Time) benchmarkrun.Sample {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.sampleLocked(now).statsSnapshot()
-}
-
-func (s *runStats) metricsSnapshot(now time.Time) benchmarkrun.MetricsSnapshot {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.sampleLocked(now).metricsSnapshot()
+	return s.sampleLocked(now)
 }
 
 type latencyHistogram struct {
@@ -142,22 +135,6 @@ func (h *latencyHistogram) record(latency time.Duration) {
 	}
 	if h.total == 1 || latency > h.max {
 		h.max = latency
-	}
-}
-
-func (h latencyHistogram) snapshot() benchmarkrun.LatencyStats {
-	if h.total == 0 {
-		return benchmarkrun.LatencyStats{}
-	}
-
-	return benchmarkrun.LatencyStats{
-		MinMilliseconds:     durationMilliseconds(h.min),
-		MaxMilliseconds:     durationMilliseconds(h.max),
-		AverageMilliseconds: float64(h.sum) / float64(h.total) / float64(time.Millisecond),
-		P50Milliseconds:     durationMilliseconds(h.quantile(0.50)),
-		P90Milliseconds:     durationMilliseconds(h.quantile(0.90)),
-		P95Milliseconds:     durationMilliseconds(h.quantile(0.95)),
-		P99Milliseconds:     durationMilliseconds(h.quantile(0.99)),
 	}
 }
 
@@ -221,40 +198,11 @@ func buildLatencyBucketBounds() []time.Duration {
 	return bounds
 }
 
-func operationRatesSnapshot(counts [operationKindCount]uint64, elapsedSeconds float64) benchmarkrun.OperationRates {
-	return benchmarkrun.OperationRates{
-		PointRead:     ratePerSecond(counts[operationKindPointRead], elapsedSeconds),
-		RangeRead:     ratePerSecond(counts[operationKindRangeRead], elapsedSeconds),
-		HistoryInsert: ratePerSecond(counts[operationKindHistoryInsert], elapsedSeconds),
-		AccountUpdate: ratePerSecond(counts[operationKindAccountUpdate], elapsedSeconds),
-		Transaction:   ratePerSecond(counts[operationKindTransaction], elapsedSeconds),
-	}
-}
-
-func ratePerSecond(count uint64, elapsedSeconds float64) float64 {
-	if count == 0 || elapsedSeconds <= 0 {
-		return 0
-	}
-	return float64(count) / elapsedSeconds
-}
-
 func durationMilliseconds(duration time.Duration) float64 {
 	return float64(duration) / float64(time.Millisecond)
 }
 
-type sampledRunStats struct {
-	latency              latencyHistogram
-	elapsedSeconds       float64
-	totalOperations      uint64
-	successfulOperations uint64
-	failedOperations     uint64
-	activeClients        int
-	configuredClients    int
-	perKind              [operationKindCount]uint64
-	latestError          string
-}
-
-func (s *runStats) sampleLocked(now time.Time) sampledRunStats {
+func (s *runStats) sampleLocked(now time.Time) benchmarkrun.Sample {
 	endAt := now
 	if s.finishedAt != nil {
 		endAt = *s.finishedAt
@@ -267,44 +215,41 @@ func (s *runStats) sampleLocked(now time.Time) sampledRunStats {
 		elapsedSeconds = 0
 	}
 
-	return sampledRunStats{
-		latency:              s.latency,
-		elapsedSeconds:       elapsedSeconds,
-		totalOperations:      s.totalOperations,
-		successfulOperations: s.successfulOperations,
-		failedOperations:     s.failedOperations,
-		activeClients:        s.activeClients,
-		configuredClients:    s.configuredClients,
-		perKind:              s.perKind,
-		latestError:          s.latestError,
-	}
-}
-
-func (s sampledRunStats) statsSnapshot() benchmarkrun.Stats {
-	return benchmarkrun.Stats{
-		Latency:              s.latency.snapshot(),
-		TPS:                  ratePerSecond(s.totalOperations, s.elapsedSeconds),
+	return benchmarkrun.Sample{
+		Latency: benchmarkrun.LatencySample{
+			MinMilliseconds:     durationMilliseconds(s.latency.min),
+			MaxMilliseconds:     durationMilliseconds(s.latency.max),
+			AverageMilliseconds: averageMilliseconds(s.latency.sum, s.latency.total),
+			P50Milliseconds:     durationMilliseconds(s.latency.quantile(0.50)),
+			P90Milliseconds:     durationMilliseconds(s.latency.quantile(0.90)),
+			P95Milliseconds:     durationMilliseconds(s.latency.quantile(0.95)),
+			P99Milliseconds:     durationMilliseconds(s.latency.quantile(0.99)),
+			Buckets:             s.latency.metricsSnapshot().Buckets,
+			Count:               s.latency.total,
+			SumSeconds:          s.latency.sum.Seconds(),
+		},
+		ElapsedSeconds:       elapsedSeconds,
 		TotalOperations:      s.totalOperations,
 		SuccessfulOperations: s.successfulOperations,
 		FailedOperations:     s.failedOperations,
 		ActiveClients:        s.activeClients,
 		ConfiguredClients:    s.configuredClients,
-		ElapsedSeconds:       s.elapsedSeconds,
-		OperationRates:       operationRatesSnapshot(s.perKind, s.elapsedSeconds),
-		LatestError:          s.latestError,
+		OperationCounts: benchmarkrun.OperationCounts{
+			PointRead:     s.perKind[operationKindPointRead],
+			RangeRead:     s.perKind[operationKindRangeRead],
+			HistoryInsert: s.perKind[operationKindHistoryInsert],
+			AccountUpdate: s.perKind[operationKindAccountUpdate],
+			Transaction:   s.perKind[operationKindTransaction],
+		},
+		LatestError: s.latestError,
 	}
 }
 
-func (s sampledRunStats) metricsSnapshot() benchmarkrun.MetricsSnapshot {
-	return benchmarkrun.MetricsSnapshot{
-		RunDurationSeconds:   s.elapsedSeconds,
-		ConfiguredClients:    s.configuredClients,
-		ActiveClients:        s.activeClients,
-		OperationsTotal:      s.totalOperations,
-		OperationErrorsTotal: s.failedOperations,
-		TPS:                  ratePerSecond(s.totalOperations, s.elapsedSeconds),
-		OperationLatency:     s.latency.metricsSnapshot(),
+func averageMilliseconds(sum time.Duration, total uint64) float64 {
+	if total == 0 {
+		return 0
 	}
+	return float64(sum) / float64(total) / float64(time.Millisecond)
 }
 
 func compactErrorText(message string) string {

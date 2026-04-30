@@ -16,7 +16,7 @@ func TestRunStatsSnapshotComputesP95AndP99FromBoundedHistogram(t *testing.T) {
 		stats.record(operationKindPointRead, latency, startedAt.Add(latency), nil)
 	}
 
-	snapshot := stats.snapshot(startedAt.Add(2 * time.Second))
+	snapshot := stats.sample(startedAt.Add(2 * time.Second)).Stats()
 
 	if snapshot.TotalOperations != 100 {
 		t.Fatalf("TotalOperations = %d, want %d", snapshot.TotalOperations, 100)
@@ -46,7 +46,7 @@ func TestRunStatsMetricsSnapshotExportsPrometheusHistogramInSeconds(t *testing.T
 	stats.record(operationKindPointRead, 4*time.Millisecond, startedAt.Add(4*time.Millisecond), nil)
 	stats.record(operationKindPointRead, 12*time.Millisecond, startedAt.Add(12*time.Millisecond), nil)
 
-	snapshot := stats.metricsSnapshot(startedAt.Add(2 * time.Second))
+	snapshot := stats.sample(startedAt.Add(2 * time.Second)).Metrics(false)
 
 	if snapshot.OperationLatency.Count != 2 {
 		t.Fatalf("OperationLatency.Count = %d, want %d", snapshot.OperationLatency.Count, 2)

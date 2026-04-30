@@ -46,21 +46,14 @@ type OperationRates struct {
 	Transaction   float64 `json:"transaction"`
 }
 
-func zeroStats() Stats {
-	return Stats{
-		Latency:        LatencyStats{},
-		OperationRates: OperationRates{},
-	}
-}
-
-func stateToResults(state State, stats Stats) Results {
+func stateToResults(state State, sample Sample) Results {
 	return Results{
 		Status:    state.Status,
 		Options:   cloneStartOptions(state.Options),
 		StartedAt: cloneTimePtr(state.StartedAt),
 		StoppedAt: cloneTimePtr(state.StoppedAt),
 		Error:     state.Error,
-		Stats:     stats,
+		Stats:     sample.Stats(),
 	}
 }
 

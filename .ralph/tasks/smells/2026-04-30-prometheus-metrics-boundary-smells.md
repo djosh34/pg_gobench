@@ -1,4 +1,4 @@
-## Smell Set: prometheus-metrics-boundary-smells <status>not_started</status> <passes>false</passes>
+## Smell Set: prometheus-metrics-boundary-smells <status>done</status> <passes>true</passes>
 
 Please refer to skill 'improve-code-boundaries' to see what smells there are.
 
@@ -9,7 +9,7 @@ Inside dirs:
 Solve each smell:
 
 ---
-- [ ] Smell 3, wrong place-ism
+- [x] Smell 3, wrong place-ism
 The current public benchmark snapshot exposed to transport is JSON-shaped `Results`/`Stats`, while the new task needs Prometheus histogram buckets and metric naming policy. If `/metrics` is added directly in `internal/httpserver`, the transport layer will become the courier for benchmark semantics, metric naming, histogram rendering rules, and label policy. Execution should move that knowledge into a typed metrics boundary owned by `internal/benchmarkrun`, with `internal/httpserver` staying thin.
 
 code:
@@ -29,6 +29,8 @@ func (h handler) handleBenchmarkResults(w http.ResponseWriter, r *http.Request) 
 	}
 }
 ```
+
+<plan>.ralph/tasks/smells/2026-04-30-prometheus-metrics-boundary-smells_plans/2026-04-30-prometheus-metrics-boundary-smells-plan.md</plan>
 
 ```go
 type Results struct {

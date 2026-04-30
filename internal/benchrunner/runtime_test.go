@@ -228,7 +228,7 @@ func TestActiveRunSnapshotTracksMeasuredTPSAndElapsedAfterWarmup(t *testing.T) {
 	waitForOperationCompletions(t, workload.completed, 3)
 	clk.Advance(5 * time.Second)
 
-	snapshot := run.Snapshot()
+	snapshot := run.Sample().Stats()
 
 	if snapshot.TotalOperations != 2 {
 		t.Fatalf("TotalOperations = %d, want %d", snapshot.TotalOperations, 2)
@@ -241,6 +241,72 @@ func TestActiveRunSnapshotTracksMeasuredTPSAndElapsedAfterWarmup(t *testing.T) {
 	}
 	if snapshot.OperationRates.PointRead != 0.2 {
 		t.Fatalf("OperationRates.PointRead = %v, want %v", snapshot.OperationRates.PointRead, 0.2)
+	}
+
+	cancel()
+	if waitErr := run.Wait(); waitErr != context.Canceled {
+		t.Fatalf("Wait error = %v, want %v", waitErr, context.Canceled)
+	}
+}
+
+func TestActiveRunSampleBuildsJSONAndPrometheusViewsFromOneSnapshot(t *testing.T) {
+	clk := newMutableClock(time.Date(2026, 4, 30, 9, 0, 0, 0, time.UTC))
+	workload := &timedWorkload{
+		completed: make(chan int, 8),
+		durations: []time.Duration{
+			4 * time.Millisecond,
+			12 * time.Millisecond,
+		},
+		kind: operationKindPointRead,
+	}
+	pace := newBlockingPaceGate()
+
+	db, _ := openDriverDB(t, testDriverConfig{})
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatalf("Close db: %v", err)
+		}
+	})
+
+	parent, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	run, err := runner{
+		db:    db,
+		clock: clk,
+		newPlan: func(benchmark.StartOptions, benchmark.ScaleModel) (workloadPlan, error) {
+			return workload, nil
+		},
+		newPaceGate: func(_ *int, _ clock) pacingGate {
+			return pace
+		},
+	}.Start(parent, benchmark.StartOptions{
+		Scale:           1,
+		Clients:         1,
+		DurationSeconds: 600,
+		WarmupSeconds:   0,
+		Profile:         benchmark.ProfileRead,
+	})
+	if err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+
+	pace.release()
+	pace.release()
+	waitForOperationCompletions(t, workload.completed, 2)
+
+	sample := run.Sample()
+	stats := sample.Stats()
+	metrics := sample.Metrics(true)
+
+	if stats.TotalOperations != 2 {
+		t.Fatalf("stats TotalOperations = %d, want %d", stats.TotalOperations, 2)
+	}
+	if stats.OperationRates.PointRead != metrics.TPS {
+		t.Fatalf("stats point-read rate = %v, want metrics TPS %v", stats.OperationRates.PointRead, metrics.TPS)
+	}
+	if metrics.OperationLatency.Count != 2 {
+		t.Fatalf("metrics histogram count = %d, want %d", metrics.OperationLatency.Count, 2)
 	}
 
 	cancel()
@@ -297,7 +363,7 @@ func TestActiveRunSnapshotTracksSuccessFailureCountsClientCountsAndCompactLatest
 
 	pace.release()
 	waitForOperationCompletions(t, workload.completed, 1)
-	activeSnapshot := run.Snapshot()
+	activeSnapshot := run.Sample().Stats()
 	if activeSnapshot.ActiveClients != 1 {
 		t.Fatalf("ActiveClients = %d, want %d", activeSnapshot.ActiveClients, 1)
 	}
@@ -312,7 +378,7 @@ func TestActiveRunSnapshotTracksSuccessFailureCountsClientCountsAndCompactLatest
 		t.Fatal("Wait returned nil error for failed operation")
 	}
 
-	snapshot := run.Snapshot()
+	snapshot := run.Sample().Stats()
 	if snapshot.TotalOperations != 2 {
 		t.Fatalf("TotalOperations = %d, want %d", snapshot.TotalOperations, 2)
 	}
@@ -384,7 +450,7 @@ func TestActiveRunSnapshotTracksConfiguredClientsAcrossAlterations(t *testing.T)
 	seen := map[int]bool{0: true}
 	waitForUniqueWorkers(t, pace, workload.started, seen, 3)
 
-	snapshot := run.Snapshot()
+	snapshot := run.Sample().Stats()
 	if snapshot.ActiveClients != 3 {
 		t.Fatalf("ActiveClients = %d, want %d", snapshot.ActiveClients, 3)
 	}
@@ -398,7 +464,7 @@ func TestActiveRunSnapshotTracksConfiguredClientsAcrossAlterations(t *testing.T)
 	}
 
 	waitForActiveClients(t, run, 1)
-	reduced := run.Snapshot()
+	reduced := run.Sample().Stats()
 	if reduced.ConfiguredClients != 1 {
 		t.Fatalf("ConfiguredClients = %d, want %d", reduced.ConfiguredClients, 1)
 	}
@@ -593,16 +659,16 @@ func waitForUniqueWorkers(t *testing.T, pace *blockingPaceGate, started <-chan i
 	}
 }
 
-func waitForActiveClients(t *testing.T, run interface{ Snapshot() benchmarkrun.Stats }, want int) {
+func waitForActiveClients(t *testing.T, run interface{ Sample() benchmarkrun.Sample }, want int) {
 	t.Helper()
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if got := run.Snapshot().ActiveClients; got == want {
+		if got := run.Sample().Stats().ActiveClients; got == want {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	t.Fatalf("active clients never reached %d; last snapshot = %#v", want, run.Snapshot())
+	t.Fatalf("active clients never reached %d; last snapshot = %#v", want, run.Sample().Stats())
 }

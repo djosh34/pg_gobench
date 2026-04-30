@@ -58,18 +58,6 @@ func (m MetricsSnapshot) WritePrometheus(w io.Writer) error {
 	return nil
 }
 
-func metricsFromResults(results Results) MetricsSnapshot {
-	return MetricsSnapshot{
-		RunActive:            results.Status == StatusStarting || results.Status == StatusRunning || results.Status == StatusStopping,
-		RunDurationSeconds:   results.Stats.ElapsedSeconds,
-		ConfiguredClients:    results.Stats.ConfiguredClients,
-		ActiveClients:        results.Stats.ActiveClients,
-		OperationsTotal:      results.Stats.TotalOperations,
-		OperationErrorsTotal: results.Stats.FailedOperations,
-		TPS:                  results.Stats.TPS,
-	}
-}
-
 func PrometheusContentType() string {
 	return prometheusContentType
 }

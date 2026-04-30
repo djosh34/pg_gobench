@@ -36,23 +36,21 @@ type Runner interface {
 
 type Run interface {
 	Alter(options benchmark.AlterOptions) error
-	Snapshot() Stats
-	Metrics() MetricsSnapshot
+	Sample() Sample
 	Wait() error
 }
 
 type Option func(*Coordinator)
 
 type Coordinator struct {
-	mu      sync.Mutex
-	runner  Runner
-	now     func() time.Time
-	state   State
-	stats   Stats
-	metrics MetricsSnapshot
-	run     Run
-	cancel  context.CancelFunc
-	runID   uint64
+	mu     sync.Mutex
+	runner Runner
+	now    func() time.Time
+	state  State
+	sample Sample
+	run    Run
+	cancel context.CancelFunc
+	runID  uint64
 }
 
 var ErrRunActive = errors.New("benchmark run already active")
@@ -65,8 +63,7 @@ func New(runner Runner, opts ...Option) *Coordinator {
 		state: State{
 			Status: StatusIdle,
 		},
-		stats:   zeroStats(),
-		metrics: MetricsSnapshot{},
+		sample: zeroSample(),
 	}
 
 	for _, opt := range opts {
@@ -104,8 +101,7 @@ func (c *Coordinator) Start(ctx context.Context, options benchmark.StartOptions)
 		Status:  StatusStarting,
 		Options: cloneStartOptions(options),
 	}
-	c.stats = zeroStats()
-	c.metrics = MetricsSnapshot{}
+	c.sample = zeroSample()
 	c.mu.Unlock()
 
 	if c.runner == nil {
@@ -191,24 +187,23 @@ func (c *Coordinator) Results() Results {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	stats := c.stats
+	sample := c.sample
 	if c.run != nil {
-		stats = c.run.Snapshot()
+		sample = c.run.Sample()
 	}
 
-	return stateToResults(c.state, stats)
+	return stateToResults(c.state, sample)
 }
 
 func (c *Coordinator) Metrics() MetricsSnapshot {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	metrics := c.metrics
+	sample := c.sample
 	if c.run != nil {
-		metrics = c.run.Metrics()
+		sample = c.run.Sample()
 	}
-	metrics.RunActive = c.state.Status == StatusStarting || c.state.Status == StatusRunning || c.state.Status == StatusStopping
-	return metrics
+	return sample.Metrics(c.state.Status == StatusStarting || c.state.Status == StatusRunning || c.state.Status == StatusStopping)
 }
 
 func cloneState(state State) State {
@@ -242,8 +237,7 @@ func (c *Coordinator) finishStartFailure(runID uint64, options benchmark.StartOp
 		c.state.Error = ""
 		c.state.Options = cloneStartOptions(options)
 		c.state.StoppedAt = timePtr(stoppedAt)
-		c.stats = zeroStats()
-		c.metrics = MetricsSnapshot{}
+		c.sample = zeroSample()
 		return cloneState(c.state), err
 	}
 
@@ -253,8 +247,7 @@ func (c *Coordinator) finishStartFailure(runID uint64, options benchmark.StartOp
 		StoppedAt: timePtr(stoppedAt),
 		Error:     compactErrorText(err.Error()),
 	}
-	c.stats = zeroStats()
-	c.metrics = MetricsSnapshot{}
+	c.sample = zeroSample()
 
 	return cloneState(c.state), err
 }
@@ -269,8 +262,7 @@ func (c *Coordinator) waitForRun(runID uint64, run Run) {
 		return
 	}
 
-	c.stats = run.Snapshot()
-	c.metrics = run.Metrics()
+	c.sample = run.Sample()
 	c.run = nil
 	c.cancel = nil
 	stoppedAt := c.now()
