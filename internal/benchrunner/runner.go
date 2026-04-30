@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"pg_gobench/internal/benchmark"
 	"pg_gobench/internal/benchmarkrun"
@@ -11,39 +12,94 @@ import (
 
 const benchmarkSchema = "pg_gobench"
 
-type runner struct {
-	db *sql.DB
+type clock interface {
+	After(time.Duration) <-chan time.Time
+	NewTicker(time.Duration) pacingTicker
+	Now() time.Time
 }
 
-type run struct {
-	ctx context.Context
+type pacingTicker interface {
+	C() <-chan time.Time
+	Stop()
+}
+
+type workloadPlan interface {
+	RunOnce(context.Context, *workerSession) error
+}
+
+type pacingGate interface {
+	Wait(context.Context) error
+	Update(*int)
+	Close()
+}
+
+type planFactory func(benchmark.StartOptions, benchmark.ScaleModel) (workloadPlan, error)
+type gateFactory func(*int, clock) pacingGate
+
+type runner struct {
+	db          *sql.DB
+	clock       clock
+	newPlan     planFactory
+	newPaceGate gateFactory
 }
 
 func New(db *sql.DB) benchmarkrun.Runner {
-	return runner{db: db}
+	return runner{
+		db:          db,
+		clock:       realClock{},
+		newPlan:     newSQLWorkloadPlan,
+		newPaceGate: newRealPacingGate,
+	}
 }
 
 func (r runner) Start(ctx context.Context, options benchmark.StartOptions) (benchmarkrun.Run, error) {
+	r = r.withDefaults()
+
 	if r.db == nil {
 		return nil, fmt.Errorf("setup benchmark schema: database handle is nil")
 	}
+	if options.Scale < 1 {
+		return nil, fmt.Errorf("scale must be at least 1")
+	}
+	if options.Clients < 1 {
+		return nil, fmt.Errorf("clients must be at least 1")
+	}
+	if options.DurationSeconds < 1 {
+		return nil, fmt.Errorf("duration_seconds must be at least 1")
+	}
+	if options.WarmupSeconds < 0 {
+		return nil, fmt.Errorf("warmup_seconds must be at least 0")
+	}
+	if options.WarmupSeconds >= options.DurationSeconds {
+		return nil, fmt.Errorf("warmup_seconds must be less than duration_seconds")
+	}
 
-	for _, statement := range setupStatements(options, benchmark.ResolveScale(options.Scale)) {
-		if _, err := r.db.ExecContext(ctx, statement); err != nil {
-			return nil, fmt.Errorf("setup benchmark schema: %w", err)
+	scale := benchmark.ResolveScale(options.Scale)
+	plan, err := r.newPlan(options, scale)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, statement := range setupStatements(options, scale) {
+		if _, execErr := r.db.ExecContext(ctx, statement); execErr != nil {
+			return nil, fmt.Errorf("setup benchmark schema: %w", execErr)
 		}
 	}
 
-	return run{ctx: ctx}, nil
+	return newActiveRun(ctx, r.db, scale, options, plan, r.newPaceGate(options.TargetTPS, r.clock), r.clock), nil
 }
 
-func (r run) Alter(benchmark.AlterOptions) error {
-	return nil
-}
-
-func (r run) Wait() error {
-	<-r.ctx.Done()
-	return r.ctx.Err()
+func (r runner) withDefaults() runner {
+	if r.clock == nil {
+		r.clock = realClock{}
+	}
+	if r.newPlan == nil {
+		r.newPlan = newSQLWorkloadPlan
+	}
+	if r.newPaceGate == nil {
+		r.newPaceGate = newRealPacingGate
+	}
+	return r
 }
 
 func setupStatements(options benchmark.StartOptions, scale benchmark.ScaleModel) []string {
@@ -101,4 +157,26 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_gobench.accounts LIMIT 1)`, scale.Branches, s
 	)
 
 	return statements
+}
+
+type realClock struct{}
+
+func (realClock) After(duration time.Duration) <-chan time.Time {
+	return time.After(duration)
+}
+
+func (realClock) NewTicker(duration time.Duration) pacingTicker {
+	return realTicker{Ticker: time.NewTicker(duration)}
+}
+
+func (realClock) Now() time.Time {
+	return time.Now()
+}
+
+type realTicker struct {
+	*time.Ticker
+}
+
+func (t realTicker) C() <-chan time.Time {
+	return t.Ticker.C
 }
