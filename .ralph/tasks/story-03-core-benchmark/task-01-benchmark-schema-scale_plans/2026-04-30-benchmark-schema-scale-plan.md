@@ -2,7 +2,7 @@
 
 ## Scope
 
-Implement the benchmark-owned PostgreSQL schema setup path behind the benchmark runner boundary, with all objects created under the dedicated `pg_gobench` schema and no destructive operations outside that schema.
+Implement the benchmark-owned PostgreSQL schema setup path behind the benchmark runner boundary, with all objects created under the dedicated `bench` schema and no destructive operations outside that schema.
 
 This task should deliver:
 
@@ -60,15 +60,15 @@ This should flatten the boundary instead of spreading benchmark-owned SQL concer
 
 ## Schema Design
 
-All benchmark-owned objects must live under `pg_gobench`, with explicit schema-qualified names. Do not rely on `search_path` mutation.
+All benchmark-owned objects must live under `bench`, with explicit schema-qualified names. Do not rely on `search_path` mutation.
 
 Planned objects:
 
-- schema `pg_gobench`
-- table `pg_gobench.accounts`
-- table `pg_gobench.branches`
-- table `pg_gobench.tellers`
-- table `pg_gobench.history`
+- schema `bench`
+- table `bench.accounts`
+- table `bench.branches`
+- table `bench.tellers`
+- table `bench.history`
 - indexes needed for primary-key lookups and later range-read / transaction workloads
 
 Planned data rules:
@@ -76,7 +76,7 @@ Planned data rules:
 - deterministic row identifiers and seed values derived from the chosen scale
 - concrete row-count mapping documented in code comments next to `ResolveScale`
 - idempotent setup when `reset=false`: create missing schema objects and seed only when the benchmark-owned tables are empty
-- destructive setup only when `reset=true`: drop `pg_gobench` schema with cascade, then recreate it
+- destructive setup only when `reset=true`: drop `bench` schema with cascade, then recreate it
 
 If execution shows that later workload coverage requires a different minimal table set than `accounts/branches/tellers/history`, switch this plan back to `TO BE VERIFIED` instead of forcing an awkward intermediate schema.
 
@@ -88,9 +88,9 @@ Planned slices:
 
 - [x] Slice 1: failing `internal/benchmark` test for `ResolveScale` mapping representative scales to concrete row counts and documenting the intended size model
 - [x] Slice 2: failing `internal/benchmark` JSON test for the new `reset` start option so the public contract stays explicit and transport-compatible
-- [x] Slice 3: failing schema-render test proving generated SQL targets only `pg_gobench` object names and includes no unqualified destructive statement outside that schema
+- [x] Slice 3: failing schema-render test proving generated SQL targets only `bench` object names and includes no unqualified destructive statement outside that schema
 - [x] Slice 4: failing `database/sql` execution test using a recording SQL driver or equivalent public-interface harness to prove setup executes schema/table/index creation through `database/sql`
-- [x] Slice 5: failing execution test proving `reset=false` never drops the schema and `reset=true` drops only `pg_gobench`
+- [x] Slice 5: failing execution test proving `reset=false` never drops the schema and `reset=true` drops only `bench`
 - [x] Slice 6: failing runner/coordinator test proving setup failure is returned from `Runner.Start`, drives the coordinator to failed state, and leaves the raw Go error text visible
 - [x] Slice 7: refactor after green to keep SQL generation and setup execution inside the concrete runner package without duplicate option or schema DTOs
 

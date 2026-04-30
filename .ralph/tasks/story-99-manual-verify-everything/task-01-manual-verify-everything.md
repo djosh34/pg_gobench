@@ -19,7 +19,7 @@ This is a non-code manual verification task. Do not use TDD. Do not run `make te
 - [ ] Benchmark start option model, defaults, validation, supported profiles, and constrained alter-request model.
 - [ ] Single-active benchmark run coordinator state machine including start, stop, alter, visible failures, and in-memory state/results only.
 - [ ] JSON HTTP API for `/benchmark/start`, `/benchmark/alter`, `/benchmark/stop`, `/benchmark`, `/benchmark/results`, `/healthz`, and `/readyz`, including compact error JSON and single-active-run rejection.
-- [ ] Benchmark schema setup under `pg_gobench`, explicit reset behavior, and scale-to-data initialization behavior.
+- [ ] Benchmark schema setup under `bench`, explicit reset behavior, and scale-to-data initialization behavior.
 - [ ] Core workloads for point reads, range reads, inserts, updates, mixed read/write, and multi-statement transactions with duration, warmup, clients, and TPS controls.
 - [ ] In-memory stats aggregation including p95, p99, TPS, operation counts, client counts, elapsed time, and same-shape stats across workloads.
 - [ ] Prometheus `/metrics` output with `pg_gobench_` metric names and low-cardinality benchmark metrics.

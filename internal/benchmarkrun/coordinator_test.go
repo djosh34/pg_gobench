@@ -373,7 +373,7 @@ func TestCoordinatorMarksWorkerFailureAsFailedAndExposesErrorInJSONState(t *test
 
 func TestCoordinatorMarksStartFailureAsFailedAndExposesSetupError(t *testing.T) {
 	coordinator := benchmarkrun.New(&fakeRunner{
-		startErr: errors.New("setup benchmark schema: relation pg_gobench.accounts already exists"),
+		startErr: errors.New("setup benchmark schema: relation bench.accounts already exists"),
 	})
 
 	state, err := coordinator.Start(context.Background(), benchmark.StartOptions{

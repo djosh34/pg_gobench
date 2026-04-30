@@ -1,6 +1,17 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 04:49:49 AM CEST 2026
+Generated: Thu Apr 30 05:02:24 AM CEST 2026
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-benchmark-schema-contract-drifted-to-bench.md`
+
+```
+## Bug: Benchmark schema contract drifted from `pg_gobench` to `bench` <status>done</status> <passes>true</passes> <priority>high</priority>
+
+<description>
+The manual verification pass for `.ralph/tasks/story-99-manual-verify-everything/task-01-manual-verify-everything.md` found a real contract mismatch in the shipped product.
+```
+
+==============
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-postgres-reserved-schema-name-breaks-benchmark-start.md`
 

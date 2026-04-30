@@ -4,8 +4,8 @@
 
 Implement the advanced `database/sql` workload families behind the existing benchmark runner. This task should deliver:
 
-- a `join` profile that executes both a multi-table join workload and an aggregation/group-by workload against `pg_gobench` tables
-- a `lock` profile that executes both explicit lock-contention SQL and hot-row update contention SQL against `pg_gobench` tables
+- a `join` profile that executes both a multi-table join workload and an aggregation/group-by workload against `bench` tables
+- a `lock` profile that executes both explicit lock-contention SQL and hot-row update contention SQL against `bench` tables
 - visible contention failures recorded through the existing run/error/stats pipeline with clear Go error text
 - the same top-level JSON stats shape and fixed `operation_rates` object for old and new profiles
 
@@ -81,7 +81,7 @@ Planned SQL direction:
   - use a transaction-scoped locking statement on benchmark-owned tables/rows
   - prefer a fast-failing path such as `NOWAIT` or a short local lock timeout so contention becomes a visible operation error instead of an indefinite stall
 - hot-row update operation:
-  - direct all workers at the same small hot-row set in `pg_gobench.accounts`
+- direct all workers at the same small hot-row set in `bench.accounts`
   - use transaction-scoped timeout/conflict semantics so lock waits, serialization conflicts, or deadlocks surface as returned errors rather than hidden blocking
 
 Keep all SQL inside the benchmark-owned schema. No public-schema writes, no direct pgx APIs, and no swallowed contention failures.

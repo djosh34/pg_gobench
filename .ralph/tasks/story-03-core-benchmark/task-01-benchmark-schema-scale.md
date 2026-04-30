@@ -5,18 +5,18 @@
 <description>
 Must use tdd skill to complete
 
-**Goal:** Implement the PostgreSQL benchmark schema and data setup system. All benchmark-owned database objects must live under a dedicated schema named `pg_gobench`. The service must not drop or mutate objects outside that schema.
+**Goal:** Implement the PostgreSQL benchmark schema and data setup system. All benchmark-owned database objects must live under a dedicated schema named `bench`. The service must not drop or mutate objects outside that schema.
 
-The benchmark size/scale option must map to concrete row counts and table sizes. Document the mapping in code or docs. The setup path must be explicit and safe: initialize benchmark-owned tables and indexes, populate deterministic data needed by workloads, and optionally reset only the `pg_gobench` schema when requested by benchmark options.
+The benchmark size/scale option must map to concrete row counts and table sizes. Document the mapping in code or docs. The setup path must be explicit and safe: initialize benchmark-owned tables and indexes, populate deterministic data needed by workloads, and optionally reset only the `bench` schema when requested by benchmark options.
 
 This project is greenfield with no backwards compatibility requirement. Do not add legacy table names or migration compatibility paths.
 </description>
 
 <acceptance_criteria>
 - [x] TDD red/green coverage exists for scale-to-row-count mapping.
-- [x] TDD red/green coverage exists for generated schema SQL targeting only `pg_gobench`.
+- [x] TDD red/green coverage exists for generated schema SQL targeting only `bench`.
 - [x] TDD red/green coverage or integration coverage exists for creating benchmark tables and indexes through `database/sql`.
-- [x] Reset/destructive behavior is explicit and limited to the benchmark-owned `pg_gobench` schema.
+- [x] Reset/destructive behavior is explicit and limited to the benchmark-owned `bench` schema.
 - [x] Setup failures are returned and cause benchmark start to fail visibly.
 - [x] No SQL is executed through pgx direct APIs; use `database/sql`.
 - [x] `make check` — passes cleanly
