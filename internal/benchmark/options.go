@@ -138,6 +138,26 @@ func DecodeAlterOptions(r io.Reader) (AlterOptions, error) {
 	return options, nil
 }
 
+func (o StartOptions) ApplyAlter(alter AlterOptions) (StartOptions, error) {
+	if err := validateAlterOptions(alter); err != nil {
+		return StartOptions{}, err
+	}
+
+	updated := cloneStartOptions(o)
+	if alter.Clients != nil {
+		updated.Clients = *alter.Clients
+	}
+	if alter.TargetTPS != nil {
+		updated.TargetTPS = intPtr(*alter.TargetTPS)
+	}
+
+	if err := validateStartOptions(updated); err != nil {
+		return StartOptions{}, err
+	}
+
+	return updated, nil
+}
+
 func decodeJSON(r io.Reader, target any) error {
 	decoder := json.NewDecoder(r)
 	decoder.DisallowUnknownFields()
@@ -233,4 +253,15 @@ func validateAlterOptions(options AlterOptions) error {
 
 func intPtr(value int) *int {
 	return &value
+}
+
+func cloneStartOptions(options StartOptions) StartOptions {
+	cloned := options
+	if options.ReadPercent != nil {
+		cloned.ReadPercent = intPtr(*options.ReadPercent)
+	}
+	if options.TargetTPS != nil {
+		cloned.TargetTPS = intPtr(*options.TargetTPS)
+	}
+	return cloned
 }

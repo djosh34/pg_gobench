@@ -1,18 +1,6 @@
 # Current Tasks Summary
 
-Generated: Thu Apr 30 01:57:59 AM CEST 2026
-
-# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-02-control-plane/task-02-run-coordinator.md`
-
-```
-## Task: 02 Implement Single Active Benchmark Run Coordinator <status>not_started</status> <passes>false</passes>
-
-<blocked_by>.ralph/tasks/story-02-control-plane/task-01-benchmark-option-model.md</blocked_by>
-
-<description>
-```
-
-==============
+Generated: Thu Apr 30 02:07:11 CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-02-control-plane/task-03-http-json-api.md`
 

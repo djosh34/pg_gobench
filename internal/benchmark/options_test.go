@@ -195,3 +195,54 @@ func TestDecodeAlterOptionsRejectsEmptyAndUnsupportedFields(t *testing.T) {
 		})
 	}
 }
+
+func TestStartOptionsApplyAlterUpdatesOnlyPermittedRuntimeFields(t *testing.T) {
+	original := benchmark.StartOptions{
+		Scale:           10,
+		Clients:         4,
+		DurationSeconds: 90,
+		WarmupSeconds:   15,
+		Profile:         benchmark.ProfileMixed,
+		ReadPercent:     intPtr(75),
+		TargetTPS:       intPtr(200),
+	}
+	updated, err := original.ApplyAlter(benchmark.AlterOptions{
+		Clients:   intPtr(8),
+		TargetTPS: intPtr(350),
+	})
+	if err != nil {
+		t.Fatalf("ApplyAlter returned error: %v", err)
+	}
+
+	if updated.Scale != original.Scale {
+		t.Fatalf("Scale = %d, want %d", updated.Scale, original.Scale)
+	}
+	if updated.Clients != 8 {
+		t.Fatalf("Clients = %d, want %d", updated.Clients, 8)
+	}
+	if updated.DurationSeconds != original.DurationSeconds {
+		t.Fatalf("DurationSeconds = %d, want %d", updated.DurationSeconds, original.DurationSeconds)
+	}
+	if updated.Profile != original.Profile {
+		t.Fatalf("Profile = %q, want %q", updated.Profile, original.Profile)
+	}
+	if updated.TargetTPS == nil {
+		t.Fatal("TargetTPS = nil, want value")
+	}
+	if *updated.TargetTPS != 350 {
+		t.Fatalf("TargetTPS = %d, want %d", *updated.TargetTPS, 350)
+	}
+	if original.Clients != 4 {
+		t.Fatalf("original Clients = %d, want %d", original.Clients, 4)
+	}
+	if original.TargetTPS == nil {
+		t.Fatal("original TargetTPS = nil, want value")
+	}
+	if *original.TargetTPS != 200 {
+		t.Fatalf("original TargetTPS = %d, want %d", *original.TargetTPS, 200)
+	}
+}
+
+func intPtr(value int) *int {
+	return &value
+}
