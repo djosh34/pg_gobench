@@ -70,12 +70,12 @@ If execution shows that Go `1.26.2` requires a wider packaging or dependency bou
 
 Planned repository inspection and edit order:
 
-- [ ] Slice 1: re-scan the repository for all owned `1.25.5` or `1.26.2` references before editing
-- [ ] Slice 2: update `go.mod` from `go 1.25.5` to `go 1.26.2`
-- [ ] Slice 3: update `Dockerfile` from `golang:1.25.5-bookworm` to `golang:1.26.2-bookworm`
-- [ ] Slice 4: update any additional owned build or release pin discovered during execution, but only if it is a real active boundary
-- [ ] Slice 5: remove or rewrite any stale active docs/build references that still claim `1.25.5`
-- [ ] Slice 6: do one final boundary pass to confirm CI still derives Go from `go.mod` and no duplicate version ownership was introduced
+- [x] Slice 1: re-scan the repository for all owned `1.25.5` or `1.26.2` references before editing
+- [x] Slice 2: update `go.mod` from `go 1.25.5` to `go 1.26.2`
+- [x] Slice 3: update `Dockerfile` from `golang:1.25.5-bookworm` to `golang:1.26.2-bookworm`
+- [x] Slice 4: update any additional owned build or release pin discovered during execution, but only if it is a real active boundary
+- [x] Slice 5: remove or rewrite any stale active docs/build references that still claim `1.25.5`
+- [x] Slice 6: do one final boundary pass to confirm CI still derives Go from `go.mod` and no duplicate version ownership was introduced
 
 Expected file changes:
 
@@ -94,16 +94,16 @@ This task is a TDD exception because it is toolchain, Dockerfile, and release pl
 
 Planned execution slices:
 
-- [ ] Slice 1: confirm the repository search finds the full set of active version references before edits
-- [ ] Slice 2: make the minimal version-pin edits
-- [ ] Slice 3: run `make check`
-- [ ] Slice 4: run `make lint`
-- [ ] Slice 5: run `make test`
-- [ ] Slice 6: run a real Docker build against the upgraded `Dockerfile`
-- [ ] Slice 7: push the upgraded commit to GitHub so the publish workflow runs for the exact commit SHA
-- [ ] Slice 8: use authenticated GitHub inspection to confirm the workflow run for that commit completed successfully
-- [ ] Slice 9: verify the GHCR image `ghcr.io/<owner>/<repo>:<github-sha>` exists for the pushed commit
-- [ ] Slice 10: re-check the boundary shape and revert this plan to `TO BE VERIFIED` if the upgrade required a wider redesign
+- [x] Slice 1: confirm the repository search finds the full set of active version references before edits
+- [x] Slice 2: make the minimal version-pin edits
+- [x] Slice 3: run `make check`
+- [x] Slice 4: run `make lint`
+- [x] Slice 5: run `make test`
+- [x] Slice 6: run a real Docker build against the upgraded `Dockerfile`
+- [x] Slice 7: push the upgraded commit to GitHub so the publish workflow runs for the exact commit SHA
+- [x] Slice 8: use authenticated GitHub inspection to confirm the workflow run for that commit completed successfully
+- [x] Slice 9: verify the GHCR image `ghcr.io/<owner>/<repo>:<github-sha>` exists for the pushed commit
+- [x] Slice 10: re-check the boundary shape and revert this plan to `TO BE VERIFIED` if the upgrade required a wider redesign
 
 Planned verification commands during execution:
 

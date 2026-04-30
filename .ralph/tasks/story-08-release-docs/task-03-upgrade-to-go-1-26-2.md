@@ -1,4 +1,4 @@
-## Task: 03 Upgrade Project Toolchain To Go 1.26.2 <status>not_started</status> <passes>false</passes>
+## Task: 03 Upgrade Project Toolchain To Go 1.26.2 <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-08-release-docs/task-01-github-actions-multiarch-ghcr.md</blocked_by>
 
@@ -13,15 +13,15 @@ This is a toolchain, Dockerfile, and workflow verification task. Do not use the 
 </description>
 
 <acceptance_criteria>
-- [ ] Repository-owned Go toolchain references are updated from Go 1.25.5 to Go 1.26.2, including `go.mod`, `Dockerfile`, and any CI/tooling version pins found during inspection.
-- [ ] The upgrade does not leave stale Go 1.25.5 references in build, CI, release, or documentation paths unless they are historical examples explicitly irrelevant to runtime/build behavior.
-- [ ] `make check` — passes cleanly.
-- [ ] `make test` — passes cleanly.
-- [ ] `make lint` — passes cleanly.
-- [ ] Docker build verification for the upgraded `Dockerfile` passes cleanly.
-- [ ] A commit containing the Go 1.26.2 upgrade is pushed to GitHub and the GHCR publish workflow runs for that pushed commit.
-- [ ] Authenticated GitHub verification using `/home/joshazimullah.linux/github-api-curl` or equivalent confirms the GHCR workflow completed successfully for the upgraded commit.
-- [ ] GHCR/package verification confirms the upgraded commit's image tag was pushed successfully to `ghcr.io/<owner>/<repo>:<github-sha>`.
+- [x] Repository-owned Go toolchain references are updated from Go 1.25.5 to Go 1.26.2, including `go.mod`, `Dockerfile`, and any CI/tooling version pins found during inspection.
+- [x] The upgrade does not leave stale Go 1.25.5 references in build, CI, release, or documentation paths unless they are historical examples explicitly irrelevant to runtime/build behavior.
+- [x] `make check` — passes cleanly.
+- [x] `make test` — passes cleanly.
+- [x] `make lint` — passes cleanly.
+- [x] Docker build verification for the upgraded `Dockerfile` passes cleanly.
+- [x] A commit containing the Go 1.26.2 upgrade is pushed to GitHub and the GHCR publish workflow runs for that pushed commit.
+- [x] Authenticated GitHub verification using `/home/joshazimullah.linux/github-api-curl` or equivalent confirms the GHCR workflow completed successfully for the upgraded commit.
+- [x] GHCR/package verification confirms the upgraded commit's image tag was pushed successfully to `ghcr.io/<owner>/<repo>:<github-sha>`.
 </acceptance_criteria>
 
 <plan>.ralph/tasks/story-08-release-docs/task-03-upgrade-to-go-1-26-2_plans/2026-04-30-upgrade-to-go-1-26-2-plan.md</plan>
