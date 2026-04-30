@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"time"
 
+	"pg_gobench/internal/benchmarkrun"
 	"pg_gobench/internal/config"
+	"pg_gobench/internal/database"
 	"pg_gobench/internal/httpserver"
 )
 
@@ -53,18 +55,41 @@ func ParseConfig(args []string) (Config, error) {
 	return cfg, nil
 }
 
-func Run(ctx context.Context, cfg Config, stdout, stderr io.Writer) error {
+func Run(ctx context.Context, cfg Config, stdout, stderr io.Writer) (runErr error) {
+	db, err := database.Open(cfg.Source)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			if runErr == nil {
+				runErr = fmt.Errorf("close database: %w", closeErr)
+				return
+			}
+			runErr = errors.Join(runErr, fmt.Errorf("close database: %w", closeErr))
+		}
+	}()
+
 	listener, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
 		return fmt.Errorf("listen on %q: %w", cfg.Addr, err)
 	}
 
-	server := httpserver.New(listener.Addr().String())
+	coordinator := benchmarkrun.New(nil)
+	server := httpserver.New(listener.Addr().String(), httpserver.Dependencies{
+		Benchmark: coordinator,
+		Ready: func(ctx context.Context) error {
+			return database.CheckReadiness(ctx, db)
+		},
+	})
 	server.ErrorLog = log.New(stderr, "httpserver: ", 0)
 
 	if _, err := fmt.Fprintf(stdout, "listening on %s\n", listener.Addr().String()); err != nil {
 		if closeErr := listener.Close(); closeErr != nil {
-			return fmt.Errorf("write startup message: %v; close listener: %w", err, closeErr)
+			return errors.Join(
+				fmt.Errorf("write startup message: %w", err),
+				fmt.Errorf("close listener: %w", closeErr),
+			)
 		}
 		return fmt.Errorf("write startup message: %w", err)
 	}

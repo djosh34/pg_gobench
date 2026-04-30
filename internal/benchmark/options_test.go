@@ -1,11 +1,31 @@
 package benchmark_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"pg_gobench/internal/benchmark"
 )
+
+func TestStartOptionsMarshalJSONUsesHTTPFieldNames(t *testing.T) {
+	payload, err := json.Marshal(benchmark.StartOptions{
+		Scale:           12,
+		Clients:         4,
+		DurationSeconds: 90,
+		WarmupSeconds:   15,
+		Profile:         benchmark.ProfileMixed,
+		ReadPercent:     intPtr(70),
+		TargetTPS:       intPtr(220),
+	})
+	if err != nil {
+		t.Fatalf("Marshal StartOptions: %v", err)
+	}
+
+	if got := string(payload); got != `{"scale":12,"clients":4,"duration_seconds":90,"warmup_seconds":15,"profile":"mixed","read_percent":70,"transaction_mix":"","target_tps":220}` {
+		t.Fatalf("Marshal StartOptions = %s", got)
+	}
+}
 
 func TestDecodeStartOptionsAppliesDefaultsForMinimalPayload(t *testing.T) {
 	options, err := benchmark.DecodeStartOptions(strings.NewReader(`{"scale":12}`))

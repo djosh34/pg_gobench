@@ -3,6 +3,7 @@ package app_test
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"pg_gobench/internal/app"
+	"pg_gobench/internal/config"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -104,7 +106,10 @@ func TestRunServesHealthzAndShutsDownOnContextCancellation(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		runErr := app.Run(ctx, app.Config{Addr: "127.0.0.1:0"}, stdoutWriter, io.Discard)
+		runErr := app.Run(ctx, app.Config{
+			Addr:   "127.0.0.1:0",
+			Source: testSourceConfig(),
+		}, stdoutWriter, io.Discard)
 		closeErr := stdoutWriter.Close()
 		if runErr != nil {
 			errCh <- runErr
@@ -132,12 +137,34 @@ func TestRunServesHealthzAndShutsDownOnContextCancellation(t *testing.T) {
 		t.Fatalf("StatusCode = %d, want %d", response.StatusCode, http.StatusOK)
 	}
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		t.Fatalf("ReadAll response body: %v", err)
+	var healthz map[string]string
+	if err := json.NewDecoder(response.Body).Decode(&healthz); err != nil {
+		t.Fatalf("Decode /healthz response body: %v", err)
 	}
-	if string(body) != "ok\n" {
-		t.Fatalf("body = %q, want %q", string(body), "ok\n")
+	if healthz["status"] != "ok" {
+		t.Fatalf("healthz status = %q, want %q", healthz["status"], "ok")
+	}
+
+	readyzResponse, err := http.Get("http://" + addr + "/readyz")
+	if err != nil {
+		t.Fatalf("GET /readyz: %v", err)
+	}
+	defer func() {
+		if err := readyzResponse.Body.Close(); err != nil {
+			t.Fatalf("Close readyz response body: %v", err)
+		}
+	}()
+
+	if readyzResponse.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("readyz StatusCode = %d, want %d", readyzResponse.StatusCode, http.StatusServiceUnavailable)
+	}
+
+	var readyz map[string]string
+	if err := json.NewDecoder(readyzResponse.Body).Decode(&readyz); err != nil {
+		t.Fatalf("Decode /readyz response body: %v", err)
+	}
+	if !strings.Contains(readyz["error"], "readiness ping") {
+		t.Fatalf("readyz error = %q, want readiness ping context", readyz["error"])
 	}
 
 	cancel()
@@ -163,7 +190,10 @@ func TestRunReturnsListenerError(t *testing.T) {
 		}
 	}()
 
-	err = app.Run(context.Background(), app.Config{Addr: listener.Addr().String()}, io.Discard, io.Discard)
+	err = app.Run(context.Background(), app.Config{
+		Addr:   listener.Addr().String(),
+		Source: testSourceConfig(),
+	}, io.Discard, io.Discard)
 	if err == nil {
 		t.Fatal("Run returned nil error for occupied address")
 	}
@@ -200,4 +230,14 @@ func readListeningAddr(t *testing.T, r io.Reader) string {
 	}
 
 	return ""
+}
+
+func testSourceConfig() config.Source {
+	return config.Source{
+		Host:     "127.0.0.1",
+		Port:     1,
+		Username: "postgres",
+		Password: "secret",
+		DBName:   "postgres",
+	}
 }

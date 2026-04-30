@@ -39,19 +39,19 @@ const (
 )
 
 type StartOptions struct {
-	Scale           int
-	Clients         int
-	DurationSeconds int
-	WarmupSeconds   int
-	Profile         Profile
-	ReadPercent     *int
-	TransactionMix  TransactionMix
-	TargetTPS       *int
+	Scale           int            `json:"scale"`
+	Clients         int            `json:"clients"`
+	DurationSeconds int            `json:"duration_seconds"`
+	WarmupSeconds   int            `json:"warmup_seconds"`
+	Profile         Profile        `json:"profile"`
+	ReadPercent     *int           `json:"read_percent,omitempty"`
+	TransactionMix  TransactionMix `json:"transaction_mix"`
+	TargetTPS       *int           `json:"target_tps,omitempty"`
 }
 
 type AlterOptions struct {
-	Clients   *int
-	TargetTPS *int
+	Clients   *int `json:"clients,omitempty"`
+	TargetTPS *int `json:"target_tps,omitempty"`
 }
 
 type startPayload struct {
@@ -63,11 +63,6 @@ type startPayload struct {
 	ReadPercent     *int            `json:"read_percent"`
 	TransactionMix  *TransactionMix `json:"transaction_mix"`
 	TargetTPS       *int            `json:"target_tps"`
-}
-
-type alterPayload struct {
-	Clients   *int `json:"clients"`
-	TargetTPS *int `json:"target_tps"`
 }
 
 func DecodeStartOptions(r io.Reader) (StartOptions, error) {
@@ -121,14 +116,9 @@ func DecodeStartOptions(r io.Reader) (StartOptions, error) {
 }
 
 func DecodeAlterOptions(r io.Reader) (AlterOptions, error) {
-	var payload alterPayload
-	if err := decodeJSON(r, &payload); err != nil {
+	var options AlterOptions
+	if err := decodeJSON(r, &options); err != nil {
 		return AlterOptions{}, err
-	}
-
-	options := AlterOptions{
-		Clients:   payload.Clients,
-		TargetTPS: payload.TargetTPS,
 	}
 
 	if err := validateAlterOptions(options); err != nil {
@@ -165,7 +155,8 @@ func decodeJSON(r io.Reader, target any) error {
 	if err := decoder.Decode(target); err != nil {
 		return fmt.Errorf("decode JSON: %w", err)
 	}
-	if err := decoder.Decode(&struct{}{}); err == nil {
+	var trailing any
+	if err := decoder.Decode(&trailing); err == nil {
 		return fmt.Errorf("decode JSON: unexpected trailing data")
 	} else if !errors.Is(err, io.EOF) {
 		return fmt.Errorf("decode JSON: %w", err)
