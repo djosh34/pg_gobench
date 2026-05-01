@@ -1,6 +1,6 @@
 # Done Tasks Summary
 
-Generated: Thu Apr 30 10:20:35 PM CEST 2026
+Generated: Fri May  1 11:24:39 AM CEST 2026
 
 # Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/bugs/bug-benchmark-schema-contract-drifted-to-bench.md`
 
@@ -121,6 +121,18 @@ Must use tdd skill to complete
 ## Task: 04 Add Explicit PostgreSQL sslmode Config Parameter <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-01-foundation/task-03-database-sql-connector.md</blocked_by>
+
+<description>
+```
+
+==============
+
+# Task `/home/joshazimullah.linux/work_mounts/patroni_rewrite/pg_gobench/.ralph/tasks/story-01-foundation/task-05-allow-fullchain-ca-cert.md`
+
+```
+## Task: 05 Allow Fullchain Certificates In PostgreSQL CA Config <status>done</status> <passes>true</passes>
+
+<blocked_by>.ralph/tasks/story-01-foundation/task-04-sslmode-config-param.md</blocked_by>
 
 <description>
 ```

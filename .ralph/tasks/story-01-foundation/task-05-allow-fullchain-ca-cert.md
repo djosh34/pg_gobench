@@ -1,4 +1,4 @@
-## Task: 05 Allow Fullchain Certificates In PostgreSQL CA Config <status>not_started</status> <passes>false</passes>
+## Task: 05 Allow Fullchain Certificates In PostgreSQL CA Config <status>done</status> <passes>true</passes>
 
 <blocked_by>.ralph/tasks/story-01-foundation/task-04-sslmode-config-param.md</blocked_by>
 
@@ -13,14 +13,16 @@ This task is limited to PostgreSQL TLS configuration for `source.tls.ca_cert`. K
 </description>
 
 <acceptance_criteria>
-- [ ] TDD red/green coverage proves `source.tls.ca_cert` accepts a traditional CA PEM bundle containing one or more CA certificates.
-- [ ] TDD red/green coverage proves `source.tls.ca_cert` accepts a fullchain PEM containing a leaf certificate followed by one or more CA/intermediate certificates, and uses the CA certificates as trust anchors.
-- [ ] TDD red/green coverage proves a fullchain-style PEM containing only a leaf/non-CA certificate is rejected with an error that names `source.tls.ca_cert`.
-- [ ] TDD red/green coverage proves malformed PEM, invalid certificate bytes, and unreadable `source.tls.ca_cert` files fail with useful errors instead of being ignored.
-- [ ] TLS client certificate behavior for `source.tls.cert` and `source.tls.key` remains covered and unchanged.
-- [ ] The implementation does not fall back to system roots or an empty root pool when `source.tls.ca_cert` is configured but unusable.
-- [ ] `make check` — passes cleanly
-- [ ] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
-- [ ] `make lint` — passes cleanly
+- [x] TDD red/green coverage proves `source.tls.ca_cert` accepts a traditional CA PEM bundle containing one or more CA certificates.
+- [x] TDD red/green coverage proves `source.tls.ca_cert` accepts a fullchain PEM containing a leaf certificate followed by one or more CA/intermediate certificates, and uses the CA certificates as trust anchors.
+- [x] TDD red/green coverage proves a fullchain-style PEM containing only a leaf/non-CA certificate is rejected with an error that names `source.tls.ca_cert`.
+- [x] TDD red/green coverage proves malformed PEM, invalid certificate bytes, and unreadable `source.tls.ca_cert` files fail with useful errors instead of being ignored.
+- [x] TLS client certificate behavior for `source.tls.cert` and `source.tls.key` remains covered and unchanged.
+- [x] The implementation does not fall back to system roots or an empty root pool when `source.tls.ca_cert` is configured but unusable.
+- [x] `make check` — passes cleanly
+- [x] `make test` — passes cleanly (default suite; excludes only ultra-long tests moved to `make test-long`)
+- [x] `make lint` — passes cleanly
 - [ ] If this task impacts ultra-long tests (or their selection): `make test-long` — passes cleanly (ultra-long-only)
 </acceptance_criteria>
+
+<plan>.ralph/tasks/story-01-foundation/task-05-allow-fullchain-ca-cert_plans/2026-05-01-fullchain-ca-cert-plan.md</plan>

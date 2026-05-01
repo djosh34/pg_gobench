@@ -1,10 +1,12 @@
 package database
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"net/url"
@@ -73,14 +75,9 @@ func buildTLSConfig(cfg config.TLS, base *tls.Config) (*tls.Config, error) {
 	}
 
 	if cfg.CACert != "" {
-		rootPEM, err := os.ReadFile(cfg.CACert)
+		rootCAs, err := loadRootCAs(cfg.CACert)
 		if err != nil {
-			return nil, fmt.Errorf("read source.tls.ca_cert %q: %w", cfg.CACert, err)
-		}
-
-		rootCAs := x509.NewCertPool()
-		if !rootCAs.AppendCertsFromPEM(rootPEM) {
-			return nil, fmt.Errorf("parse source.tls.ca_cert %q: no certificates found", cfg.CACert)
+			return nil, err
 		}
 		tlsConfig.RootCAs = rootCAs
 	}
@@ -94,6 +91,55 @@ func buildTLSConfig(cfg config.TLS, base *tls.Config) (*tls.Config, error) {
 	}
 
 	return tlsConfig, nil
+}
+
+func loadRootCAs(path string) (*x509.CertPool, error) {
+	rootPEM, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read source.tls.ca_cert %q: %w", path, err)
+	}
+
+	rootCAs := x509.NewCertPool()
+	foundCertificateBlock := false
+	foundCA := false
+
+	for len(rootPEM) > 0 {
+		block, remainder := pem.Decode(rootPEM)
+		if block == nil {
+			if len(bytes.TrimSpace(rootPEM)) == 0 {
+				break
+			}
+
+			return nil, fmt.Errorf("parse source.tls.ca_cert %q: malformed PEM data", path)
+		}
+		rootPEM = remainder
+
+		if block.Type != "CERTIFICATE" {
+			return nil, fmt.Errorf("parse source.tls.ca_cert %q: unexpected PEM block type %q", path, block.Type)
+		}
+
+		foundCertificateBlock = true
+
+		certificate, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("parse source.tls.ca_cert %q: %w", path, err)
+		}
+		if !certificate.IsCA {
+			continue
+		}
+
+		rootCAs.AddCert(certificate)
+		foundCA = true
+	}
+
+	if !foundCertificateBlock {
+		return nil, fmt.Errorf("parse source.tls.ca_cert %q: no PEM certificate blocks found", path)
+	}
+	if !foundCA {
+		return nil, fmt.Errorf("parse source.tls.ca_cert %q: no usable CA certificates found", path)
+	}
+
+	return rootCAs, nil
 }
 
 type pinger interface {
